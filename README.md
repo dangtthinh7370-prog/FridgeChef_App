@@ -1,12 +1,6 @@
 # 🥑 FridgeChef - Mobile App (Frontend)
 
 Ứng dụng Di động Quản lý Thực phẩm, Cảnh báo Hạn sử dụng & Gợi ý Thực đơn Thông minh.
-
-- **Môn học:** Lập trình Thiết bị Di động (Mobile Programming)
-- **Giảng viên hướng dẫn:** TS. Lê Minh Trí
-- **Nền tảng:** React Native (Expo)
-- **Giai đoạn hoàn thành:** Tuần 2 — Thiết kế giao diện & Layout tĩnh 12 màn hình theo Figma.
-
 ---
 
 ## 🎨 Design System
@@ -56,11 +50,11 @@ npm install
 
 ### 3. Khởi động ứng dụng
 ```bash
-npx expo start
+npx expo start // k được thì chạy npx expo start --tunnel
 ```
 
 ### 4. Xem trên điện thoại
-- Cài app **Expo Go** trên điện thoại (từ Google Play hoặc App Store).
+- Cài app **Expo Go** (phiên bản 52) trên điện thoại (từ Google Play hoặc App Store hoặc Apk).
 - Dùng camera (iOS) hoặc tính năng "Scan QR Code" trong Expo Go (Android) để quét mã QR hiển thị ở terminal.
 - Đảm bảo điện thoại và máy tính cùng kết nối chung một mạng Wi-Fi.
 
@@ -70,3 +64,31 @@ npx expo start
 - **Frontend (Giao diện):** Đã hoàn thiện 100% layout tĩnh và Navigation trong `src/screens/` và `src/navigation/`.
 - **Backend / Database (Tuần 3):** Tạo Firestore Collection và viết hàm gọi dữ liệu trong `src/services/`.
 - **AI & API (Tuần 4):** Tích hợp Gemini API và OpenFoodFacts API.
+
+
+# CẤU TRÚC THƯ MỤC DỰ ÁN
+FridgeChef/
+├── assets/                  # Ảnh logo FC, placeholder
+├── src/
+│   ├── constants/           # Bảng màu, typography từ Figma
+│   │   └── theme.js
+│   ├── components/          # Các thành phần giao diện tái sử dụng
+│   │   ├── PrimaryButton.js # Nút bấm chuẩn 48px, bo góc 12px
+│   │   ├── FreshnessBadge.js# Badge: Còn hạn / Sắp hết / Quá hạn
+│   │   └── ScreenHeader.js  # Tiêu đề 24px Bold + phụ đề
+│   ├── data/                # DỮ LIỆU MẪU (Mock data cho Tuần 2)
+│   │   └── mockData.js      # Danh sách 18 thực phẩm, gợi ý món ăn...
+│   ├── navigation/          # Cấu hình chuyển trang theo User Flow
+│   │   ├── RootNavigator.js # Luồng chính: Login -> App
+│   │   └── TabNavigator.js  # 4 tab: Trang chủ, Tủ lạnh, Đi chợ, Tài khoản
+│   ├── screens/             # 12 màn hình theo Figma
+│   │   ├── auth/            # 01 - Đăng nhập
+│   │   ├── home/            # 02 - Trang chủ, 07 - Cảnh báo hạn dùng
+│   │   ├── fridge/          # 03 - Tủ lạnh ảo, 04 - Thêm món, 05 - Chi tiết món, 06 - Quét mã
+│   │   ├── recipe/          # 08 - AI Chef, 09 - Chi tiết công thức, 10 - Chế độ nấu
+│   │   ├── shopping/        # 11 - Danh sách đi chợ
+│   │   └── profile/         # 12 - Tài khoản
+│   └── services/            # (Để trống cho thành viên Backend/AI ở Tuần 3-4)
+├── App.js
+├── README.md                # Hướng dẫn chạy dự án cho nhóm
+└── .gitignore
