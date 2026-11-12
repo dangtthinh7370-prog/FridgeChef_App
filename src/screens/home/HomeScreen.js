@@ -4,10 +4,13 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SIZES } from '../../constants/theme';
 import FreshnessBadge from '../../components/FreshnessBadge';
-import { MOCK_FOODS } from '../../data/mockData';
+import { useFridgeViewModel } from '../../viewmodels/FridgeProvider';
 
 export default function HomeScreen({ navigation }) {
-  const urgentFoods = MOCK_FOODS.filter(item => item.status === 'soon').slice(0, 2);
+  const { foods } = useFridgeViewModel();
+  const urgentFoods = foods.filter(item => item.status === 'soon').slice(0, 2);
+  const soonCount = foods.filter(item => item.status === 'soon').length;
+  const expiredCount = foods.filter(item => item.status === 'expired').length;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -21,7 +24,7 @@ export default function HomeScreen({ navigation }) {
         {/* Card Tủ lạnh của bạn */}
         <View style={styles.bannerCard}>
           <Text style={styles.bannerLabel}>TỦ LẠNH CỦA BẠN</Text>
-          <Text style={styles.bannerNumber}>{MOCK_FOODS.length} thực phẩm</Text>
+          <Text style={styles.bannerNumber}>{foods.length} thực phẩm</Text>
           <Text style={styles.bannerSub}>Hôm nay có gì ngon?</Text>
         </View>
 
@@ -31,7 +34,7 @@ export default function HomeScreen({ navigation }) {
             style={[styles.statBox, { backgroundColor: COLORS.badgeSoonBg }]}
             onPress={() => navigation.navigate('ExpiryAlert')}
           >
-            <Text style={[styles.statNumber, { color: COLORS.expirySoon }]}>03</Text>
+            <Text style={[styles.statNumber, { color: COLORS.expirySoon }]}>{String(soonCount).padStart(2, '0')}</Text>
             <Text style={styles.statLabel}>Sắp hết hạn</Text>
           </TouchableOpacity>
 
@@ -39,7 +42,7 @@ export default function HomeScreen({ navigation }) {
             style={[styles.statBox, { backgroundColor: COLORS.badgeExpiredBg }]}
             onPress={() => navigation.navigate('ExpiryAlert')}
           >
-            <Text style={[styles.statNumber, { color: COLORS.expired }]}>01</Text>
+            <Text style={[styles.statNumber, { color: COLORS.expired }]}>{String(expiredCount).padStart(2, '0')}</Text>
             <Text style={styles.statLabel}>Đã hết hạn</Text>
           </TouchableOpacity>
         </View>
@@ -52,18 +55,27 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
+
+        {!urgentFoods.length && (
+          <View style={{ paddingVertical: 12 }}>
+            <Text style={styles.foodSub}>{foods.length ? 'Không có thực phẩm sắp hết hạn.' : 'Tủ lạnh chưa có thực phẩm.'}</Text>
+            {!foods.length && <TouchableOpacity onPress={() => navigation.navigate('AddFood')} style={{ marginTop: 8 }}>
+              <Text style={styles.viewAll}>+ Thêm thực phẩm đầu tiên</Text>
+            </TouchableOpacity>}
+          </View>
+        )}
         {urgentFoods.map(item => (
           <TouchableOpacity
             key={item.id}
             style={styles.foodItem}
-            onPress={() => navigation.navigate('FoodDetail', { food: item })}
+            onPress={() => navigation.navigate('FoodDetail', { foodId: item.id })}
           >
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>{item.code}</Text>
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.foodName}>{item.name}</Text>
-              <Text style={styles.foodSub}>{item.quantity} • {item.daysLeft}</Text>
+              <Text style={styles.foodSub}>{item.quantityText} • {item.daysLeft}</Text>
             </View>
             <FreshnessBadge status="soon" text={item.daysLeft.replace('Còn ', '')} />
           </TouchableOpacity>

@@ -1,94 +1,101 @@
-# 🥑 FridgeChef - Mobile App (Frontend)
+# FridgeChef
 
-Ứng dụng Di động Quản lý Thực phẩm, Cảnh báo Hạn sử dụng & Gợi ý Thực đơn Thông minh.
----
+Ứng dụng React Native + Expo quản lý thực phẩm, hạn dùng và danh sách đi chợ.
 
-## 🎨 Design System
-- **Màu chủ đạo (Primary):** `#2E7D32` (Xanh lá)
-- **Xanh đậm (Dark Green):** `#205C31` (Card AI Chef)
-- **Nền app (Background):** `#F7FAF6`
-- **Sắp hết hạn (Expiry Soon):** `#F4A62A` (Cam vàng)
-- **Đã quá hạn (Expired):** `#CE4E46` (Đỏ)
+## Bản tuần 3
 
----
+**Lưu trữ: SQLite cục bộ. Kiến trúc: MVVM với custom hooks và Context.**
 
-## 📱 12 Màn hình đã dựng hoàn chỉnh
-1. `01 - Đăng nhập` (`LoginScreen.js`)
-2. `02 - Trang chủ` (`HomeScreen.js`)
-3. `03 - Tủ lạnh ảo` (`FridgeScreen.js`)
-4. `04 - Thêm thực phẩm` (`AddFoodScreen.js`)
-5. `05 - Chi tiết thực phẩm` (`FoodDetailScreen.js`)
-6. `06 - Quét mã vạch` (`BarcodeScreen.js`)
-7. `07 - Cảnh báo hạn dùng` (`ExpiryAlertScreen.js`)
-8. `08 - AI Chef` (`AIChefScreen.js`)
-9. `09 - Chi tiết công thức` (`RecipeDetailScreen.js`)
-10. `10 - Chế độ nấu ăn & Timer` (`CookingModeScreen.js`)
-11. `11 - Danh sách đi chợ` (`ShoppingListScreen.js`)
-12. `12 - Tài khoản & Cài đặt` (`ProfileScreen.js`)
+Màn thêm/sửa thực phẩm được thiết kế lại cho điện thoại theo yêu cầu: số lượng có nút −/+, chọn đơn vị riêng, chọn ngày bằng lịch, gợi ý tên nhanh, thông tin bổ sung có thể thu gọn, nút lưu cố định và “Lưu và thêm món khác”. Nhóm thực phẩm và ghi chú được lưu thật; hạn dùng mới để trống để chọn theo bao bì.
 
----
+- Thêm, đọc, sửa, xóa thực phẩm; lưu dữ liệu qua các lần đóng/mở app.
+- Lọc theo ngăn, tìm theo tên, xem chi tiết.
+- Trang chủ và cảnh báo dùng dữ liệu thực từ cùng cơ sở dữ liệu.
+- Tự tính trạng thái hạn dùng theo ngày hiện tại.
+- CRUD danh sách đi chợ, tách Cần mua/Đã mua, chọn đơn vị nhanh, lưu liên tiếp.
+- Khi cất vào tủ lạnh, nhập số lượng thực mua, ngăn và hạn dùng riêng cho từng món; có thể chuyển riêng một món đã mua.
+- Chuyển món đã mua vào tủ lạnh trong một transaction.
+- Kiểm tra dữ liệu, trạng thái bận, lỗi và danh sách trống.
+- Nhóm thực phẩm và ghi chú tùy chọn (schema v2, tự nâng cấp DB v1 mà không xóa dữ liệu).
+- Có dữ liệu mẫu tùy chọn bằng nút bấm; không tự đổ lại khi mở app.
 
-## 🔑 Tài khoản Demo (Tuần 2)
-Do ứng dụng đang ở giai đoạn UI tĩnh (Tuần 2), dữ liệu đăng nhập được cấu hình mẫu trong `src/data/mockData.js`:
-- **Email:** `fridgechef@example.com`
-- **Mật khẩu:** `123456`
-- Bấm nút **Đăng nhập** sẽ tự động chuyển vào màn hình chính.
-*(Tuần 3 & 4: Thành viên Backend sẽ tích hợp Firebase Authentication).*
+Xem [kế hoạch, ERD, từ điển dữ liệu, kiến trúc và kịch bản demo tuần 3](docs/WEEK3.md).
 
----
+## Chạy trên Android Emulator
 
-## 🚀 Hướng dẫn chạy dự án cho các thành viên trong nhóm
+Máy cần Node.js và Android Studio với máy ảo đã khởi động.
 
-### 1. Cài đặt môi trường
-Đảm bảo máy đã cài **Node.js** (v18+ hoặc v20+).
-
-### 2. Cài đặt các gói phụ thuộc (Dependencies)
-Mở terminal tại thư mục dự án và chạy:
-```bash
+```powershell
+cd D:\2026-2027\FridgeChef
 npm install
+npx expo start --clear
 ```
 
-### 3. Khởi động ứng dụng
-```bash
-npx expo start // k được thì chạy npx expo start --tunnel
+Nhấn **a** trong terminal để mở trên Android. Giữ terminal mở.
+
+Dự án dùng **Expo SDK 52**, React Native 0.76.7, React 18.3.1 và expo-sqlite ~15.1.4.
+Dùng Expo Go tương thích SDK 52; nếu cần tải bản phù hợp tại [expo.dev/go](https://expo.dev/go).
+Không nâng riêng Expo Go/SDK hoặc expo-sqlite mà chưa kiểm tra tương thích.
+
+Giữ giao diện đăng nhập gốc của nhóm: bấm **Đăng nhập** để vào phiên demo. Chưa xác thực tài khoản trực tuyến; dữ liệu SQLite dùng chung trên thiết bị, không được tách theo email nhập vào.
+
+Giữ các tab, trang chủ và phong cách màu xanh của nhóm. Riêng màn thêm/sửa thực phẩm được thiết kế lại; chi tiết hiển thị thêm nhóm và ghi chú khi có. Các thay đổi tuần 3 tập trung vào nối dữ liệu, kiểm tra nhập liệu và CRUD.
+
+Lần đầu danh sách trống. Có thể tự nhập thực phẩm hoặc bấm **Thêm 4 thực phẩm mẫu để thử** trong tab Tủ lạnh.
+Khi cập nhật từ bản tuần 2, dữ liệu mock cũ không tự chuyển thành dữ liệu đã lưu.
+
+## Chạy bằng nút Run trong Android Studio
+
+Chọn **FridgeChef Android** trên thanh cấu hình rồi bấm **Run ▶** (Shift+F10). Mở máy ảo trước và dừng Expo đang chạy trong Terminal để tránh trùng cổng. Xem [hướng dẫn cấu hình Run](docs/ANDROID_STUDIO_RUN.md).
+
+## Kiểm thử
+
+Bộ kiểm thử cần Node 22.13+; khuyên dùng Node 24.
+
+```powershell
+npm test
+npm run check:source
 ```
 
-### 4. Xem trên điện thoại
-- Cài app **Expo Go** (phiên bản 52) trên điện thoại (từ Google Play hoặc App Store hoặc Apk).
-- Dùng camera (iOS) hoặc tính năng "Scan QR Code" trong Expo Go (Android) để quét mã QR hiển thị ở terminal.
-- Đảm bảo điện thoại và máy tính cùng kết nối chung một mạng Wi-Fi.
+Test chạy model/schema/repository thực trên SQLite của Node. Kiểm tra source không thay thế chạy thử giao diện và native module trên Android.
 
----
+## Cấu trúc
 
-## 👥 Phân công phối hợp nhóm
-- **Frontend (Giao diện):** Đã hoàn thiện 100% layout tĩnh và Navigation trong `src/screens/` và `src/navigation/`.
-- **Backend / Database (Tuần 3):** Tạo Firestore Collection và viết hàm gọi dữ liệu trong `src/services/`.
-- **AI & API (Tuần 4):** Tích hợp Gemini API và OpenFoodFacts API.
+| Thư mục | Vai trò |
+|---|---|
+| src/screens | View: các màn hình |
+| src/components | Thành phần giao diện dùng lại |
+| src/viewmodels | State và xử lý thao tác, chia sẻ dữ liệu |
+| src/models | Quy tắc và kiểm tra dữ liệu |
+| src/repositories | CRUD SQL, transaction |
+| src/database | Schema, index, migration |
+| src/navigation | Stack và bottom tabs |
+| src/constants | Màu sắc và kích thước |
+| src/data | Dữ liệu demo công thức của tuần 2 |
+| tests | Kiểm thử model và SQLite |
+| docs | Báo cáo tuần 3 |
 
+## Cơ sở dữ liệu
 
-# CẤU TRÚC THƯ MỤC DỰ ÁN
-FridgeChef/
-├── assets/                  # Ảnh logo FC, placeholder
-├── src/
-│   ├── constants/           # Bảng màu, typography từ Figma
-│   │   └── theme.js
-│   ├── components/          # Các thành phần giao diện tái sử dụng
-│   │   ├── PrimaryButton.js # Nút bấm chuẩn 48px, bo góc 12px
-│   │   ├── FreshnessBadge.js# Badge: Còn hạn / Sắp hết / Quá hạn
-│   │   └── ScreenHeader.js  # Tiêu đề 24px Bold + phụ đề
-│   ├── data/                # DỮ LIỆU MẪU (Mock data cho Tuần 2)
-│   │   └── mockData.js      # Danh sách 18 thực phẩm, gợi ý món ăn...
-│   ├── navigation/          # Cấu hình chuyển trang theo User Flow
-│   │   ├── RootNavigator.js # Luồng chính: Login -> App
-│   │   └── TabNavigator.js  # 4 tab: Trang chủ, Tủ lạnh, Đi chợ, Tài khoản
-│   ├── screens/             # 12 màn hình theo Figma
-│   │   ├── auth/            # 01 - Đăng nhập
-│   │   ├── home/            # 02 - Trang chủ, 07 - Cảnh báo hạn dùng
-│   │   ├── fridge/          # 03 - Tủ lạnh ảo, 04 - Thêm món, 05 - Chi tiết món, 06 - Quét mã
-│   │   ├── recipe/          # 08 - AI Chef, 09 - Chi tiết công thức, 10 - Chế độ nấu
-│   │   ├── shopping/        # 11 - Danh sách đi chợ
-│   │   └── profile/         # 12 - Tài khoản
-│   └── services/            # (Để trống cho thành viên Backend/AI ở Tuần 3-4)
-├── App.js
-├── README.md                # Hướng dẫn chạy dự án cho nhóm
-└── .gitignore
+File `fridgechef.db` chứa ba bảng:
+
+- `storage_areas`: ngăn mát, ngăn đông, đồ khô.
+- `food_items`: thực phẩm, số lượng, đơn vị, ngăn, ngày mua, hạn dùng.
+- `shopping_items`: các món cần mua và trạng thái đã mua.
+
+Một ngăn có nhiều thực phẩm. Không lưu mật khẩu, dữ liệu người dùng cloud hoặc trạng thái hết hạn cố định.
+Các thao tác ghi dùng SQL có tham số; chuyển đi chợ → tủ lạnh dùng transaction.
+
+## Phạm vi chưa triển khai
+
+Firebase Authentication, Firestore, tủ lạnh dùng chung, đồng bộ nhiều máy, quét mã vạch, AI thật và thông báo nền chưa được triển khai.
+AI Chef, công thức, chế độ nấu và màn hình mã vạch vẫn thuộc demo tuần 2; không được dùng làm bằng chứng chức năng backend.
+Đích nghiệm thu tuần 3 là Android; chưa cấu hình SQLite trên web.
+
+Kế hoạch ban đầu dùng Firebase được thay bằng SQLite cho tuần 3 để đáp ứng nhánh lưu trữ cục bộ của đề.
+Nhóm có thể bổ sung Firebase trong giai đoạn tiếp theo qua lớp repository, cùng thiết kế tài khoản/phân quyền và di chuyển dữ liệu.
+
+## Giao diện
+
+Màu chính `#2E7D32`, xanh đậm `#205C31`, nền `#F7FAF6`, sắp hết hạn `#F4A62A`, quá hạn `#CE4E46`.
+Các tham chiếu icon/splash/favicon đến thư mục assets chưa có đã được bỏ khỏi cấu hình; cần bổ sung ảnh trước khi phát hành.

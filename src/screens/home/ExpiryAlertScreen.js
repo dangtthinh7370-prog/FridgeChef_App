@@ -4,9 +4,14 @@ import { View, Text, StyleSheet, TouchableOpacity, Switch, ScrollView } from 're
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES } from '../../constants/theme';
+import { useFridgeViewModel } from '../../viewmodels/FridgeProvider';
 
 export default function ExpiryAlertScreen({ navigation }) {
-  const [remind, setRemind] = useState(true);
+  const [remind] = useState(false);
+  const { foods } = useFridgeViewModel();
+  const urgentFoods = foods.filter(item => item.status !== 'valid');
+  const soonCount = foods.filter(item => item.status === 'soon').length;
+  const expiredCount = foods.filter(item => item.status === 'expired').length;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -24,54 +29,26 @@ export default function ExpiryAlertScreen({ navigation }) {
       <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
         {/* Banner Cam */}
         <View style={styles.alertBanner}>
-          <Text style={styles.alertBannerTitle}>03 thực phẩm sắp hết hạn</Text>
+          <Text style={styles.alertBannerTitle}>{soonCount} sắp hết hạn · {expiredCount} đã quá hạn</Text>
           <Text style={styles.alertBannerSub}>Đề xuất nấu ngay để tránh lãng phí</Text>
         </View>
 
         <Text style={styles.sectionTitle}>Cần ưu tiên</Text>
 
-        {/* List items */}
-        <TouchableOpacity
-          style={styles.alertItem}
-          onPress={() => navigation.navigate('FoodDetail', { food: { name: 'Cà chua', quantity: '3 quả', code: 'CT' } })}
-        >
-          <View style={[styles.iconBox, { backgroundColor: COLORS.badgeSoonBg }]}>
-            <Ionicons name="alert" size={18} color={COLORS.expirySoon} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.itemName}>Cà chua • 3 quả</Text>
-            <Text style={styles.itemExp}>Sắp hết hạn trong 1 ngày</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={COLORS.muted} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.alertItem}
-          onPress={() => navigation.navigate('FoodDetail', { food: { name: 'Thịt gà', quantity: '500 g', code: 'TG' } })}
-        >
-          <View style={[styles.iconBox, { backgroundColor: COLORS.badgeSoonBg }]}>
-            <Ionicons name="alert" size={18} color={COLORS.expirySoon} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.itemName}>Thịt gà • 500 g</Text>
-            <Text style={styles.itemExp}>Sắp hết hạn trong 2 ngày</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={COLORS.muted} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.alertItem}
-          onPress={() => navigation.navigate('FoodDetail', { food: { name: 'Sữa tươi', quantity: '1 hộp', code: 'ST', status: 'expired' } })}
-        >
-          <View style={[styles.iconBox, { backgroundColor: COLORS.badgeExpiredBg }]}>
-            <Ionicons name="close-circle" size={18} color={COLORS.expired} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.itemName}>Sữa tươi • 1 hộp</Text>
-            <Text style={[styles.itemExp, { color: COLORS.expired }]}>Đã quá hạn sử dụng</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={COLORS.muted} />
-        </TouchableOpacity>
+        {/* List items: same row design, populated from SQLite */}
+        {!urgentFoods.length && <Text style={styles.subtitle}>Không có thực phẩm cần cảnh báo.</Text>}
+        {urgentFoods.map(food => (
+          <TouchableOpacity key={food.id} style={styles.alertItem} onPress={() => navigation.navigate('FoodDetail', { foodId: food.id })}>
+            <View style={[styles.iconBox, { backgroundColor: food.status === 'expired' ? COLORS.badgeExpiredBg : COLORS.badgeSoonBg }]}>
+              <Ionicons name={food.status === 'expired' ? 'close-circle' : 'alert'} size={18} color={food.status === 'expired' ? COLORS.expired : COLORS.expirySoon} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.itemName}>{food.name} • {food.quantityText}</Text>
+              <Text style={[styles.itemExp, food.status === 'expired' && { color: COLORS.expired }]}>{food.daysLeft}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={COLORS.muted} />
+          </TouchableOpacity>
+        ))}
 
         {/* Switch nhắc nhở */}
         <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Nhắc nhở của bạn</Text>
@@ -82,7 +59,7 @@ export default function ExpiryAlertScreen({ navigation }) {
           </View>
           <Switch
             value={remind}
-            onValueChange={setRemind}
+            onValueChange={() => Alert.alert('Thông báo hàng ngày', 'Chưa hỗ trợ thông báo nền. Cảnh báo trong ứng dụng vẫn cập nhật theo hạn dùng.')}
             trackColor={{ true: COLORS.primary }}
           />
         </View>
