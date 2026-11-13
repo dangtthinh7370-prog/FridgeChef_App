@@ -67,7 +67,7 @@ export default function LoginScreen({ navigation }) {
         {/* Demo Account Hint */}
         <View style={styles.demoHintBox}>
           <Text style={styles.demoHintText}>
-            💡 Tài khoản demo: {MOCK_AUTH_USER.email} | mk: {MOCK_AUTH_USER.password}
+            💡 Demo cục bộ · chưa xác thực tài khoản. Dữ liệu dùng chung trên thiết bị.
           </Text>
         </View>
 

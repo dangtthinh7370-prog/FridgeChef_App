@@ -1,31 +1,34 @@
 // src/screens/fridge/FoodDetailScreen.js
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES } from '../../constants/theme';
 import FreshnessBadge from '../../components/FreshnessBadge';
+import { useFridgeViewModel } from '../../viewmodels/FridgeProvider';
+import { FOOD_CATEGORIES } from '../../models/food';
 
 export default function FoodDetailScreen({ navigation, route }) {
-  const food = route.params?.food || {
-    name: 'Cà chua',
-    quantity: '3 quả',
-    code: 'CT',
-    area: 'Ngăn mát',
-    buyDate: '05/11/2026',
-    expDate: '06/11/2026',
-    status: 'soon',
-  };
-
+  const { foods, mutate, busy } = useFridgeViewModel();
+  const id = route.params?.foodId ?? route.params?.food?.id;
+  const food = foods.find(item => item.id === Number(id));
   const handleDelete = () => {
-    Alert.alert('Xác nhận', `Bạn có chắc muốn xóa "${food.name}" khỏi tủ lạnh?`, [
+    Alert.alert('Xác nhận', 'Bạn có chắc muốn xóa "' + food.name + '" khỏi tủ lạnh?', [
       { text: 'Hủy', style: 'cancel' },
-      { text: 'Xóa', style: 'destructive', onPress: () => navigation.goBack() }
+      { text: 'Xóa', style: 'destructive', onPress: async () => {
+        try { await mutate('deleteFood', food.id); navigation.goBack(); }
+        catch (error) { Alert.alert('Không xóa được', error.message); }
+      } },
     ]);
   };
+  if (!food) return <SafeAreaView style={styles.container}>
+    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}><Ionicons name="arrow-back" size={24} color={COLORS.text} /></TouchableOpacity>
+    <Text style={styles.subtitle}>Thực phẩm không còn tồn tại. Hãy quay lại tủ lạnh.</Text>
+  </SafeAreaView>;
 
   return (
     <SafeAreaView style={styles.container}>
+      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 12 }}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
@@ -57,7 +60,7 @@ export default function FoodDetailScreen({ navigation, route }) {
         
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Số lượng</Text>
-          <Text style={styles.infoValue}>{food.quantity || '3 quả'}</Text>
+          <Text style={styles.infoValue}>{food.quantityText}</Text>
         </View>
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Khu vực</Text>
@@ -71,21 +74,31 @@ export default function FoodDetailScreen({ navigation, route }) {
           <Text style={styles.infoLabel}>Hạn sử dụng</Text>
           <Text style={styles.infoValue}>{food.expDate || '06/11/2026'}</Text>
         </View>
+        {food.category && food.category !== 'other' && <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Nhóm thực phẩm</Text>
+          <Text style={styles.infoValue}>{FOOD_CATEGORIES.find(item => item.id === food.category)?.name}</Text>
+        </View>}
+        {!!food.notes && <View style={{ paddingTop: 12 }}>
+          <Text style={styles.infoLabel}>Ghi chú</Text>
+          <Text style={[styles.infoValue, { marginTop: 6, lineHeight: 22 }]}>{food.notes}</Text>
+        </View>}
       </View>
 
       {/* Action Buttons */}
       <View style={styles.btnGroup}>
         <TouchableOpacity
           style={styles.editBtn}
-          onPress={() => Alert.alert('Chỉnh sửa', 'Chức năng cập nhật dữ liệu sẽ kết nối Firebase ở Tuần 3-4')}
+          disabled={busy}
+          onPress={() => navigation.navigate('AddFood', { foodId: food.id })}
         >
           <Text style={styles.editBtnText}>Chỉnh sửa</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
+        <TouchableOpacity style={styles.deleteBtn} disabled={busy} onPress={handleDelete}>
           <Text style={styles.deleteBtnText}>Xóa thực phẩm</Text>
         </TouchableOpacity>
       </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }

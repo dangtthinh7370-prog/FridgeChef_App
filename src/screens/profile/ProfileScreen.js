@@ -8,15 +8,15 @@ import { MOCK_AUTH_USER } from '../../data/mockData';
 
 export default function ProfileScreen({ navigation }) {
   const MENU = [
-    { id: '1', title: 'Tủ lạnh chung', sub: `Mã phòng: ${MOCK_AUTH_USER.householdId}`, icon: 'people-outline' },
+    { id: '1', title: 'Tủ lạnh chung', sub: 'Chưa tích hợp chia sẻ tủ lạnh', icon: 'people-outline' },
     { id: '2', title: 'Thông báo', sub: 'Nhắc hạn sử dụng mỗi sáng', icon: 'notifications-outline' },
     { id: '3', title: 'Chủ đề', sub: 'Sáng / tối (Light / Dark)', icon: 'moon-outline' },
-    { id: '4', title: 'Đồng bộ', sub: 'Firebase Cloud (Realtime DB)', icon: 'cloud-outline' },
+    { id: '4', title: 'Đồng bộ', sub: 'SQLite trên thiết bị · chưa đồng bộ cloud', icon: 'cloud-outline' },
     { id: '5', title: 'Trợ giúp', sub: 'Hướng dẫn sử dụng & Liên hệ', icon: 'help-circle-outline' },
   ];
 
   const handleLogout = () => {
-    Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn đăng xuất tài khoản?', [
+    Alert.alert('Đăng xuất', 'Thoát phiên demo? Dữ liệu đã lưu trên thiết bị vẫn được giữ nguyên.', [
       { text: 'Hủy', style: 'cancel' },
       { text: 'Đăng xuất', style: 'destructive', onPress: () => navigation.replace('Login') }
     ]);

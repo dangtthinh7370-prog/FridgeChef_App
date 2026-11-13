@@ -1,20 +1,29 @@
 // src/screens/fridge/FridgeScreen.js
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, FlatList, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES } from '../../constants/theme';
 import FreshnessBadge from '../../components/FreshnessBadge';
-import { MOCK_FOODS } from '../../data/mockData';
+import { useFridgeViewModel } from '../../viewmodels/FridgeProvider';
+import { STORAGE_AREAS } from '../../models/food';
 
-const TABS = ['Ngăn mát', 'Ngăn đông', 'Đồ khô'];
+const TABS = STORAGE_AREAS.map(area => area.name);
 
 export default function FridgeScreen({ navigation }) {
-  const [selectedTab, setSelectedTab] = useState('Ngăn mát');
+  const [selectedTab, setSelectedTab] = useState(TABS[0]);
   const [search, setSearch] = useState('');
 
-  const filteredFoods = MOCK_FOODS.filter(
-    item => item.area === selectedTab && item.name.toLowerCase().includes(search.toLowerCase())
+  const { foods, mutate, busy } = useFridgeViewModel();
+  const [statusFilter, setStatusFilter] = useState(null);
+  const showFilter = () => Alert.alert('Lọc theo hạn dùng', 'Chọn trạng thái', [
+    { text: 'Tất cả', onPress: () => setStatusFilter(null) },
+    { text: 'Sắp hết hạn', onPress: () => setStatusFilter('soon') },
+    { text: 'Quá hạn', onPress: () => setStatusFilter('expired') },
+    { text: 'Hủy', style: 'cancel' },
+  ]);
+  const filteredFoods = foods.filter(
+    item => (!statusFilter || item.status === statusFilter) && item.area === selectedTab && item.name.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -55,7 +64,7 @@ export default function FridgeScreen({ navigation }) {
       {/* Section List Header */}
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Thực phẩm ({filteredFoods.length})</Text>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={showFilter}>
           <Text style={styles.filterLink}>Lọc</Text>
         </TouchableOpacity>
       </View>
@@ -63,29 +72,32 @@ export default function FridgeScreen({ navigation }) {
       {/* Food List */}
       <FlatList
         data={filteredFoods}
-        keyExtractor={item => item.id}
+        keyExtractor={item => String(item.id)}
         contentContainerStyle={{ paddingBottom: 90 }}
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.foodCard}
-            onPress={() => navigation.navigate('FoodDetail', { food: item })}
+            onPress={() => navigation.navigate('FoodDetail', { foodId: item.id })}
           >
             <View style={styles.avatarBox}>
               <Text style={styles.avatarText}>{item.code}</Text>
             </View>
             <View style={styles.cardContent}>
               <Text style={styles.foodName}>{item.name}</Text>
-              <Text style={styles.foodSubtitle}>{item.quantity} • {item.daysLeft}</Text>
+              <Text style={styles.foodSubtitle}>{item.quantityText} • {item.daysLeft}</Text>
             </View>
             <FreshnessBadge
               status={item.status}
-              text={item.status === 'valid' ? 'Còn hạn' : item.status === 'soon' ? '1 ngày' : 'Quá hạn'}
+              text={item.daysLeft}
             />
           </TouchableOpacity>
         )}
         ListEmptyComponent={
           <View style={styles.emptyBox}>
-            <Text style={styles.emptyText}>Chưa có thực phẩm nào trong {selectedTab}</Text>
+            <Text style={styles.emptyText}>Chưa có thực phẩm phù hợp trong {selectedTab}</Text>
+            {!foods.length && <TouchableOpacity disabled={busy} style={{ marginTop: 12 }} onPress={async () => {
+              try { await mutate('addDemoFoods'); } catch (error) { Alert.alert('Không thêm được', error.message); }
+            }}><Text style={styles.filterLink}>Thêm 4 thực phẩm mẫu để thử</Text></TouchableOpacity>}
           </View>
         }
       />
