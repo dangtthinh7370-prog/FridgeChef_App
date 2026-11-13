@@ -12,21 +12,28 @@ import ExpiryAlertScreen from '../screens/home/ExpiryAlertScreen';
 import AIChefScreen from '../screens/recipe/AIChefScreen';
 import RecipeDetailScreen from '../screens/recipe/RecipeDetailScreen';
 import CookingModeScreen from '../screens/recipe/CookingModeScreen';
+import { useAuth } from '../viewmodels/AuthProvider';
+import { FridgeProvider } from '../viewmodels/FridgeProvider';
 
 const Stack = createNativeStackNavigator();
 
 export default function RootNavigator() {
+  const { user } = useAuth();
+  if (!user) return <LoginScreen />;
+  return <FridgeProvider key={user.id}><AuthenticatedNavigator /></FridgeProvider>;
+}
+
+function AuthenticatedNavigator() {
   return (
     <NavigationContainer>
       <Stack.Navigator
-        initialRouteName="Login"
+        initialRouteName="MainTabs"
         screenOptions={{
           headerShown: false,
           animation: 'slide_from_right',
         }}
       >
         {/* Màn hình Đăng nhập (01) */}
-        <Stack.Screen name="Login" component={LoginScreen} />
 
         {/* 4 Tabs Chính: Trang chủ, Tủ lạnh, Đi chợ, Tài khoản */}
         <Stack.Screen name="MainTabs" component={TabNavigator} />

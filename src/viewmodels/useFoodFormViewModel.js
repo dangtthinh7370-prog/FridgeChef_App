@@ -5,7 +5,7 @@ import { createFoodForm, getFoodFormErrors, stepQuantity, QUICK_FOODS } from '..
 
 export default function useFoodFormViewModel(foodId) {
   const { foods, mutate, busy } = useFridgeViewModel();
-  const existing = foods.find(food => food.id === Number(foodId));
+  const existing = foods.find(food => String(food.id) === String(foodId));
   const editing = foodId != null;
   const missing = editing && !existing;
   const [form, setForm] = useState(() => createFoodForm(existing));

@@ -11,6 +11,8 @@
     "check:source": "node scripts/check-source.cjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "2.49.9",
+    "react-native-url-polyfill": "2.0.0",
     "@expo/vector-icons": "^14.0.4",
     "@react-navigation/bottom-tabs": "^6.6.1",
     "@react-navigation/native": "^6.1.18",
