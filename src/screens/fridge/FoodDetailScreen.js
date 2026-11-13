@@ -11,7 +11,7 @@ import { FOOD_CATEGORIES } from '../../models/food';
 export default function FoodDetailScreen({ navigation, route }) {
   const { foods, mutate, busy } = useFridgeViewModel();
   const id = route.params?.foodId ?? route.params?.food?.id;
-  const food = foods.find(item => item.id === Number(id));
+  const food = foods.find(item => String(item.id) === String(id));
   const handleDelete = () => {
     Alert.alert('Xác nhận', 'Bạn có chắc muốn xóa "' + food.name + '" khỏi tủ lạnh?', [
       { text: 'Hủy', style: 'cancel' },

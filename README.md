@@ -1,8 +1,32 @@
+# FridgeChef — Supabase
+
+**Mã nguồn hiện dùng Supabase Auth và PostgreSQL.** Cần hoàn tất cấu hình trước khi chạy:
+
+1. Chạy `supabase/migrations/202611130001_fridgechef.sql` trong Supabase SQL Editor.
+2. Tạo `.env` theo `.env.example`, điền Publishable key của project.
+3. Chạy `npm install` để cài SDK và cập nhật package-lock.json, sau đó `npx expo start --clear`.
+4. Đăng ký/xác nhận email và đăng nhập. Dữ liệu được tách theo tài khoản bằng RLS.
+
+Hướng dẫn đầy đủ, nhập SQLite cũ, kiểm tra hai thiết bị và giới hạn hiện tại: [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md).
+
+- Giữ giao diện Tủ lạnh/Đi chợ; thêm đăng ký và đăng nhập thật.
+- CRUD thực phẩm và đi chợ qua Supabase; chuyển món bằng PostgreSQL RPC transaction.
+- Tài khoản → Tải lại dữ liệu để lấy thay đổi từ máy khác.
+- Tài khoản → Nhập dữ liệu từ thiết bị để nhập SQLite cũ một lần, không xóa bản cũ.
+- SQLite còn dùng để lưu phiên đăng nhập và đọc dữ liệu cũ, không đồng bộ offline hai chiều.
+- Chưa có Google OAuth, đặt lại mật khẩu, Realtime hoặc chia sẻ tủ lạnh giữa tài khoản.
+
+**Kiểm chứng:** `npm test` gồm unit test hợp đồng client Supabase và test SQLite/model cũ. Chạy thêm `supabase/tests/security.sql` và kiểm tra đăng nhập/hai thiết bị trên project thật. Unit test giả lập không xác nhận RLS trên server.
+
+---
+
+Phần dưới lưu lại mô tả bản SQLite tuần 3 trước khi chuyển Supabase; không phải cấu hình lưu trữ đang được ứng dụng sử dụng.
+
 # FridgeChef
 
 Ứng dụng React Native + Expo quản lý thực phẩm, hạn dùng và danh sách đi chợ.
 
-## Bản tuần 3
+## Bản tuần 3 — lưu trữ SQLite trước khi chuyển cloud
 
 **Lưu trữ: SQLite cục bộ. Kiến trúc: MVVM với custom hooks và Context.**
 
