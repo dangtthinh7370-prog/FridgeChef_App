@@ -2,7 +2,8 @@
   "expo": {
     "name": "FridgeChef",
     "slug": "fridgechef",
-    "version": "1.0.0",
+    "version": "1.2.0",
+    "scheme": "fridgechef",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
@@ -13,10 +14,30 @@
     "ios": {
       "supportsTablet": true
     },
-    "android": {},
+    "android": {
+      "package": "com.fridgechef.app",
+      "permissions": ["CAMERA", "POST_NOTIFICATIONS"],
+      "blockedPermissions": ["android.permission.RECORD_AUDIO"]
+    },
     "web": {},
     "plugins": [
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Cho phép FridgeChef quét mã sản phẩm.",
+          "recordAudioAndroid": false
+        }
+      ],
+      "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Cho phép FridgeChef chọn ảnh đại diện từ thư viện.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ]
     ]
   }
 }

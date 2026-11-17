@@ -3,15 +3,18 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import HomeScreen from '../screens/home/HomeScreen';
 import FridgeScreen from '../screens/fridge/FridgeScreen';
 import ShoppingListScreen from '../screens/shopping/ShoppingListScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
+import AIChefScreen from '../screens/recipe/AIChefScreen';
 
 const Tab = createBottomTabNavigator();
 
 export default function TabNavigator() {
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -21,8 +24,8 @@ export default function TabNavigator() {
         tabBarStyle: {
           backgroundColor: COLORS.white,
           borderTopColor: COLORS.divider,
-          height: 60,
-          paddingBottom: 8,
+          height: 56 + Math.max(insets.bottom, 8),
+          paddingBottom: Math.max(insets.bottom, 8),
           paddingTop: 6,
         },
         tabBarLabelStyle: {
@@ -31,6 +34,7 @@ export default function TabNavigator() {
         },
         tabBarIcon: ({ focused, color, size }) => {
           let iconName = 'home-outline';
+          if (route.name === 'Món ăn') iconName = focused ? 'restaurant' : 'restaurant-outline';
           if (route.name === 'Trang chủ') {
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Tủ lạnh') {
@@ -47,6 +51,7 @@ export default function TabNavigator() {
     >
       <Tab.Screen name="Trang chủ" component={HomeScreen} />
       <Tab.Screen name="Tủ lạnh" component={FridgeScreen} />
+      <Tab.Screen name="Món ăn" component={AIChefScreen} />
       <Tab.Screen name="Đi chợ" component={ShoppingListScreen} />
       <Tab.Screen name="Tài khoản" component={ProfileScreen} />
     </Tab.Navigator>

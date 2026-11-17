@@ -1,103 +1,155 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, ScrollView, Image, Pressable, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SIZES } from '../../constants/theme';
+import { Button, PageHeader, ui } from '../../components/AppUI';
 import { useAuth } from '../../viewmodels/AuthProvider';
-import { useFridgeViewModel } from '../../viewmodels/FridgeProvider';
-import { readLegacySnapshot } from '../../services/legacyImport';
-
-export default function ProfileScreen() {
+import { useProfile } from '../../viewmodels/ProfileProvider';
+import { chooseAvatar, removeAvatar } from '../../services/accountService';
+export default function ProfileScreen({ navigation }) {
   const { user, signOut } = useAuth();
-  const { reload, importLegacy, busy } = useFridgeViewModel();
-  const [working, setWorking] = useState(false);
+  const { profile, avatarUrl, loading, error: loadError, reload } = useProfile();
+  const [working, setWorking] = useState(false),
+    [error, setError] = useState('');
   const running = useRef(false);
-  const run = async action => {
-    if (running.current || busy) return;
-    running.current = true; setWorking(true);
-    try { await action(); } catch (error) { Alert.alert('Không thực hiện được', error.message); }
-    finally { running.current = false; setWorking(false); }
+  const run = async (action) => {
+    if (running.current) return;
+    running.current = true;
+    setWorking(true);
+    setError('');
+    try {
+      await action();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      running.current = false;
+      setWorking(false);
+    }
   };
-  const showImport = () => run(async () => {
-    const data = await readLegacySnapshot(user.id);
-    if (!data.foods.length && !data.shopping.length) { Alert.alert('Không có dữ liệu cũ', 'Thiết bị này không có món nào trong SQLite.'); return; }
-    Alert.alert('Nhập dữ liệu cũ lên tài khoản?', data.foods.length + ' thực phẩm và ' + data.shopping.length + ' món đi chợ sẽ được nhập vào ' + user.email + '. Bản SQLite được giữ nguyên. Nguồn này chỉ được nhập một lần.', [
+  const avatar = () =>
+    Alert.alert('Ảnh đại diện', 'Chọn thao tác', [
+      {
+        text: 'Chọn ảnh từ thư viện',
+        onPress: () =>
+          run(async () => {
+            if (await chooseAvatar(user.id, profile?.avatar_path)) await reload();
+          }),
+      },
+      ...(profile?.avatar_path
+        ? [
+            {
+              text: 'Gỡ ảnh hiện tại',
+              onPress: () =>
+                run(async () => {
+                  await removeAvatar(user.id, profile.avatar_path);
+                  await reload();
+                }),
+            },
+          ]
+        : []),
       { text: 'Hủy', style: 'cancel' },
-      { text: 'Nhập dữ liệu', onPress: () => run(async () => {
-        const result = await importLegacy();
-        Alert.alert(result.alreadyImported ? 'Đã nhập trước đó' : 'Nhập thành công', result.alreadyImported ? 'Không tạo bản sao trùng lặp.' : result.foods + ' thực phẩm và ' + result.shopping + ' món đi chợ đã được lưu trên Supabase.');
-      }) },
     ]);
-  });
-  const menu = [
-    { id: 'refresh', title: 'Tải lại dữ liệu', sub: 'Lấy thay đổi mới nhất từ Supabase', icon: 'cloud-download-outline', action: () => run(async () => { await reload(); Alert.alert('Đã cập nhật', 'Đã tải dữ liệu mới nhất của tài khoản.'); }) },
-    { id: 'import', title: 'Nhập dữ liệu từ thiết bị', sub: 'Đưa dữ liệu SQLite cũ vào tài khoản hiện tại', icon: 'push-outline', action: showImport },
-    { id: 'shared', title: 'Tủ lạnh chung', sub: 'Chưa hỗ trợ chia sẻ dữ liệu giữa các tài khoản', icon: 'people-outline', action: () => Alert.alert('Tủ lạnh chung', 'Dữ liệu hiện được tách riêng theo từng tài khoản. Chia sẻ gia đình sẽ triển khai sau.') },
-  ];
-  const logout = () => Alert.alert('Đăng xuất?', 'Dữ liệu đã lưu trên Supabase vẫn còn. Bạn có thể đăng nhập lại trên thiết bị khác.', [
-    { text: 'Hủy', style: 'cancel' }, { text: 'Đăng xuất', onPress: () => run(signOut) },
-  ]);
-  const displayName = user.user_metadata?.display_name || user.email?.split('@')[0] || 'FridgeChef';
-  const disabled = working || busy;
-  return <SafeAreaView style={styles.container}>
-    <ScrollView contentContainerStyle={styles.scroll}>
-      <View style={styles.header}><Text style={styles.title}>Tài khoản</Text><Text style={styles.subtitle}>Dữ liệu riêng của bạn trên Supabase</Text></View>
-      <View style={styles.userCard}><View style={styles.avatar}><Text style={styles.avatarText}>{displayName.slice(0,2).toUpperCase()}</Text></View>
-        <View style={{ flex: 1 }}><Text style={styles.userName}>{displayName}</Text><Text style={styles.userEmail}>{user.email}</Text></View></View>
-      <Text style={styles.menuHeader}>Dữ liệu và tài khoản</Text>
-      {menu.map(item => <TouchableOpacity key={item.id} accessibilityRole="button" disabled={disabled} style={[styles.menuItem, { minHeight: 68, opacity: disabled ? 0.5 : 1 }]} onPress={item.action}>
-        <Ionicons name={item.icon} size={22} color={COLORS.primary} style={{ marginRight: 12 }} /><View style={{ flex: 1 }}><Text style={styles.itemTitle}>{item.title}</Text><Text style={styles.itemSub}>{item.sub}</Text></View><Ionicons name="chevron-forward" size={18} color={COLORS.muted} />
-      </TouchableOpacity>)}
-      <Text style={[styles.itemSub, { lineHeight: 20, marginTop: 12 }]}>Cần Internet để lưu và tải dữ liệu. Sau khi thay đổi trên máy khác, chọn Tải lại dữ liệu hoặc mở lại ứng dụng.</Text>
-      <TouchableOpacity disabled={disabled} style={styles.logoutBtn} onPress={logout}><Text style={styles.logoutText}>{working ? 'Đang xử lý…' : 'Đăng xuất'}</Text></TouchableOpacity>
-    </ScrollView>
-  </SafeAreaView>;
+  const logout = (allDevices) =>
+    Alert.alert(
+      allDevices ? 'Đăng xuất trên mọi thiết bị?' : 'Đăng xuất?',
+      allDevices
+        ? 'Các phiên khác sẽ cần đăng nhập lại khi phiên hiện tại hết hiệu lực.'
+        : 'Bạn có thể đăng nhập lại bất cứ lúc nào.',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        { text: 'Đăng xuất', onPress: () => run(() => signOut({ allDevices })) },
+      ],
+    );
+  return (
+    <SafeAreaView edges={['top', 'left', 'right']} style={ui.screen}>
+      <PageHeader title="Tài khoản" subtitle="Thông tin cá nhân và bảo mật" />
+      <ScrollView contentContainerStyle={ui.content}>
+        <View style={[ui.card, { alignItems: 'center', paddingVertical: 24 }]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Đổi ảnh đại diện"
+            disabled={working || !profile}
+            onPress={avatar}
+            style={{ marginBottom: 8 }}
+          >
+            {avatarUrl ? (
+              <Image
+                source={{ uri: avatarUrl }}
+                style={{ width: 96, height: 96, borderRadius: 48 }}
+                onError={() => setError('Chưa hiển thị được ảnh đại diện. Thử tải lại hồ sơ.')}
+              />
+            ) : (
+              <View
+                style={{
+                  width: 96,
+                  height: 96,
+                  borderRadius: 48,
+                  backgroundColor: '#E7F0E1',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Ionicons name="person-outline" size={44} color="#2E7D32" />
+              </View>
+            )}
+            <View
+              style={{
+                position: 'absolute',
+                bottom: 0,
+                right: 0,
+                padding: 6,
+                backgroundColor: '#2E7D32',
+                borderRadius: 20,
+              }}
+            >
+              <Ionicons name="camera-outline" color="#fff" size={18} />
+            </View>
+          </Pressable>
+          <Text style={ui.heading}>{profile?.display_name || 'Tài khoản FridgeChef'}</Text>
+          <Text style={ui.muted}>{user.email}</Text>
+          {!!profile?.bio && <Text style={ui.body}>{profile.bio}</Text>}
+        </View>
+        {!!loadError && (
+          <View style={ui.card}>
+            <Text style={ui.error}>{loadError}</Text>
+            <Button
+              secondary
+              title="Tải lại hồ sơ"
+              busy={loading || working}
+              onPress={() => run(reload)}
+            />
+          </View>
+        )}
+        {[
+          ['Thông tin cá nhân', 'person-outline', 'EditProfile'],
+          ['Đổi email đăng nhập', 'mail-outline', 'ChangeEmail'],
+          ['Đổi mật khẩu', 'lock-closed-outline', 'ChangePassword'],
+        ].map(([label, icon, screen]) => (
+          <Pressable
+            key={screen}
+            accessibilityRole="button"
+            disabled={working || (screen === 'EditProfile' && !profile)}
+            style={[ui.card, ui.row]}
+            onPress={() => navigation.navigate(screen)}
+          >
+            <Ionicons name={icon} size={23} color="#2E7D32" />
+            <Text style={[ui.body, { flex: 1 }]}>{label}</Text>
+            <Ionicons name="chevron-forward" size={18} color="#71816E" />
+          </Pressable>
+        ))}
+        {!!error && (
+          <Text accessibilityRole="alert" style={ui.error}>
+            {error}
+          </Text>
+        )}
+        <Button
+          secondary
+          title="Đăng xuất trên mọi thiết bị"
+          disabled={working}
+          onPress={() => logout(true)}
+        />
+        <Button danger title="Đăng xuất" disabled={working} onPress={() => logout(false)} />
+      </ScrollView>
+    </SafeAreaView>
+  );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  scroll: { padding: 16 },
-  header: { marginBottom: 16 },
-  title: { fontSize: SIZES.h1, fontWeight: '700', color: COLORS.text },
-  subtitle: { fontSize: SIZES.body, color: COLORS.muted, marginTop: 4 },
-  userCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E8F5E9',
-    padding: 16,
-    borderRadius: SIZES.radiusLarge,
-    marginBottom: 20,
-  },
-  avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: COLORS.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-  },
-  avatarText: { fontSize: 18, fontWeight: '800', color: COLORS.primary },
-  userName: { fontSize: 16, fontWeight: '700', color: COLORS.text },
-  userEmail: { fontSize: 13, color: COLORS.muted, marginTop: 2 },
-  menuHeader: { fontSize: 15, fontWeight: '700', color: COLORS.text, marginBottom: 10 },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.white,
-    padding: 14,
-    borderRadius: SIZES.radius,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: COLORS.divider,
-  },
-  itemTitle: { fontSize: 14, fontWeight: '600', color: COLORS.text },
-  itemSub: { fontSize: 12, color: COLORS.muted, marginTop: 2 },
-  logoutBtn: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 24,
-    paddingVertical: 14,
-  },
-  logoutText: { color: COLORS.expired, fontSize: 15, fontWeight: '700' },
-});

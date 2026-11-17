@@ -1,0 +1,5 @@
+project_id = "fridgechef"
+
+[functions.ai-chef]
+# Require platform JWT verification as well as auth.getUser inside the function.
+verify_jwt = true
