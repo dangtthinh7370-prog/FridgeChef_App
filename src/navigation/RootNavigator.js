@@ -10,17 +10,35 @@ import FoodDetailScreen from '../screens/fridge/FoodDetailScreen';
 import BarcodeScreen from '../screens/fridge/BarcodeScreen';
 import ExpiryAlertScreen from '../screens/home/ExpiryAlertScreen';
 import AIChefScreen from '../screens/recipe/AIChefScreen';
+import AIChatScreen from '../screens/recipe/AIChatScreen';
 import RecipeDetailScreen from '../screens/recipe/RecipeDetailScreen';
 import CookingModeScreen from '../screens/recipe/CookingModeScreen';
 import { useAuth } from '../viewmodels/AuthProvider';
 import { FridgeProvider } from '../viewmodels/FridgeProvider';
+import { RecipeProvider } from '../viewmodels/RecipeProvider';
+import UseFoodScreen from '../screens/fridge/UseFoodScreen';
+import ActivityScreen from '../screens/profile/ActivityScreen';
+import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
+import { ProfileProvider } from '../viewmodels/ProfileProvider';
+import EditProfileScreen from '../screens/profile/EditProfileScreen';
+import ChangePasswordScreen from '../screens/profile/ChangePasswordScreen';
+import ChangeEmailScreen from '../screens/profile/ChangeEmailScreen';
 
 const Stack = createNativeStackNavigator();
 
 export default function RootNavigator() {
-  const { user } = useAuth();
+  const { user, recovery } = useAuth();
+  if (user && recovery) return <ResetPasswordScreen />;
   if (!user) return <LoginScreen />;
-  return <FridgeProvider key={user.id}><AuthenticatedNavigator /></FridgeProvider>;
+  return (
+    <ProfileProvider key={user.id}>
+      <FridgeProvider>
+        <RecipeProvider>
+          <AuthenticatedNavigator />
+        </RecipeProvider>
+      </FridgeProvider>
+    </ProfileProvider>
+  );
 }
 
 function AuthenticatedNavigator() {
@@ -44,8 +62,14 @@ function AuthenticatedNavigator() {
         <Stack.Screen name="BarcodeScanner" component={BarcodeScreen} />
         <Stack.Screen name="ExpiryAlert" component={ExpiryAlertScreen} />
         <Stack.Screen name="AIChef" component={AIChefScreen} />
+        <Stack.Screen name="AIChat" component={AIChatScreen} />
         <Stack.Screen name="RecipeDetail" component={RecipeDetailScreen} />
         <Stack.Screen name="CookingMode" component={CookingModeScreen} />
+        <Stack.Screen name="UseFood" component={UseFoodScreen} />
+        <Stack.Screen name="Activity" component={ActivityScreen} />
+        <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+        <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+        <Stack.Screen name="ChangeEmail" component={ChangeEmailScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

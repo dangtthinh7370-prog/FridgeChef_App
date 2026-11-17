@@ -34,7 +34,9 @@ console.log('If port 8081 is already in use, stop the previous Expo terminal/ses
 // Expo Go is already installed for SDK 52 on this emulator. Offline CLI mode
 // avoids an interactive upgrade/reinstall prompt in the IDE Run console.
 // It only affects Expo CLI network checks, not network requests made by the app.
-const child = spawn(process.execPath, [cli, 'start', '--android', '--offline'], {
+// New native package files can be missed by an already running Metro file map.
+// Rebuild its cache when starting from Android Studio after dependency changes.
+const child = spawn(process.execPath, [cli, 'start', '--android', '--offline', '--clear'], {
   cwd: root, env, stdio: 'inherit', windowsHide: true,
 });
 child.on('error', error => { console.error(error.message); process.exitCode = 1; });

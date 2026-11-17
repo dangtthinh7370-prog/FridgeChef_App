@@ -3,13 +3,17 @@ import { useFridgeViewModel } from './FridgeProvider';
 import { validateFood } from '../models/food';
 import { createFoodForm, getFoodFormErrors, stepQuantity, QUICK_FOODS } from '../models/foodForm';
 
-export default function useFoodFormViewModel(foodId) {
+export default function useFoodFormViewModel(foodId, initialName) {
   const { foods, mutate, busy } = useFridgeViewModel();
-  const existing = foods.find(food => String(food.id) === String(foodId));
+  const existing = foods.find((food) => String(food.id) === String(foodId));
   const editing = foodId != null;
   const missing = editing && !existing;
-  const [form, setForm] = useState(() => createFoodForm(existing));
+  const [form, setForm] = useState(() => ({
+    ...createFoodForm(existing),
+    ...(!existing && initialName ? { name: initialName } : {}),
+  }));
   const initial = useRef(JSON.stringify(form));
+  const initialVersion = useRef(existing?.updatedAt);
   const [errors, setErrors] = useState({});
   const [error, setError] = useState('');
   const [savedCount, setSavedCount] = useState(0);
@@ -29,18 +33,23 @@ export default function useFoodFormViewModel(foodId) {
     return result;
   }, [foods]);
   const setField = (key, value) => {
-    setForm(previous => ({ ...previous, [key]: value }));
-    setErrors(previous => ({ ...previous, [key]: undefined }));
+    setForm((previous) => ({ ...previous, [key]: value }));
+    setErrors((previous) => ({ ...previous, [key]: undefined }));
     setError('');
   };
-  const chooseSuggestion = item => {
-    setForm(previous => ({ ...previous, name: item.name, unit: item.unit, category: item.category }));
+  const chooseSuggestion = (item) => {
+    setForm((previous) => ({
+      ...previous,
+      name: item.name,
+      unit: item.unit,
+      category: item.category,
+    }));
     setErrors({});
     setError('');
   };
-  const changeQuantity = direction => {
-    setForm(previous => ({ ...previous, quantity: stepQuantity(previous.quantity, direction) }));
-    setErrors(previous => ({ ...previous, quantity: undefined }));
+  const changeQuantity = (direction) => {
+    setForm((previous) => ({ ...previous, quantity: stepQuantity(previous.quantity, direction) }));
+    setErrors((previous) => ({ ...previous, quantity: undefined }));
     setError('');
   };
   const save = async ({ keepAdding = false } = {}) => {
@@ -55,25 +64,39 @@ export default function useFoodFormViewModel(foodId) {
         return null;
       }
       validateFood(form);
-      const id = await mutate('saveFood', form, foodId);
+      const id = await mutate('saveFood', form, foodId, initialVersion.current);
       const saved = { id, name: form.name.trim() };
       if (keepAdding && !editing) {
         const next = createFoodForm(null, form);
         initial.current = JSON.stringify(next);
         setForm(next);
-        setSavedCount(count => count + 1);
+        setSavedCount((count) => count + 1);
       } else {
         initial.current = JSON.stringify(form);
       }
       setErrors({});
       setError('');
       return saved;
-    } catch (err) { setError(err.message); return null; }
-    finally { saving.current = false; }
+    } catch (err) {
+      setError(err.message);
+      return null;
+    } finally {
+      saving.current = false;
+    }
   };
   return {
-    form, setField, errors, error, save, busy, editing, missing,
-    suggestions, chooseSuggestion, changeQuantity, savedCount,
+    form,
+    setField,
+    errors,
+    error,
+    save,
+    busy,
+    editing,
+    missing,
+    suggestions,
+    chooseSuggestion,
+    changeQuantity,
+    savedCount,
     dirty: JSON.stringify(form) !== initial.current,
   };
 }
