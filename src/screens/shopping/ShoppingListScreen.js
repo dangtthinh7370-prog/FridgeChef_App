@@ -1,9 +1,8 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   Pressable,
   SectionList,
   Alert,
@@ -17,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES } from '../../constants/theme';
 import useShoppingViewModel from '../../viewmodels/useShoppingViewModel';
+import { DataState } from '../../components/AppUI';
 import { Header, Action, ui } from '../../components/Week3UI';
 import {
   QuantityControl,
@@ -28,6 +28,8 @@ import ShoppingItemEditor from '../../components/ShoppingItemEditor';
 
 export default function ShoppingListScreen({ navigation, route }) {
   const vm = useShoppingViewModel();
+  const transferScroll = useRef(null);
+  const transferPositions = useRef({});
   useEffect(() => {
     const item = route?.params?.initialItem;
     if (item) {
@@ -50,7 +52,7 @@ export default function ShoppingListScreen({ navigation, route }) {
   const openEditor = (item) => vm.openEditor(item);
   const showItemActions = (item) =>
     Alert.alert(item.name, 'Chọn thao tác', [
-      { text: 'Sửa tên / số lượng', onPress: () => openEditor(item) },
+      { text: 'Hủy', style: 'cancel' },
       ...(item.bought
         ? [{ text: 'Cất món này vào tủ lạnh', onPress: () => vm.openTransfer(item.id) }]
         : []),
@@ -63,11 +65,29 @@ export default function ShoppingListScreen({ navigation, route }) {
             { text: 'Xóa', style: 'destructive', onPress: () => run(() => vm.remove(item.id)) },
           ]),
       },
-      { text: 'Hủy', style: 'cancel' },
     ]);
+  const closeTransfer = () => {
+    if (vm.busy) return;
+    if (!vm.transferDirty) {
+      vm.close();
+      return;
+    }
+    Alert.alert(
+      'Bỏ thay đổi chưa lưu?',
+      'Các thông tin bạn vừa điền sẽ bị bỏ. Món vẫn nằm trong danh sách đã mua.',
+      [
+        { text: 'Tiếp tục nhập', style: 'cancel' },
+        { text: 'Bỏ thay đổi', style: 'destructive', onPress: vm.close },
+      ],
+    );
+  };
   const transfer = async () => {
     Keyboard.dismiss();
-    const count = await vm.move();
+    const { count, invalidId } = await vm.move();
+    if (invalidId != null) {
+      const y = transferPositions.current[invalidId] ?? 0;
+      transferScroll.current?.scrollTo({ y, animated: true });
+    }
     if (count) {
       Alert.alert('Đã cất vào tủ lạnh', count + ' món đã được lưu với hạn dùng riêng.', [
         { text: 'Tiếp tục đi chợ' },
@@ -80,12 +100,14 @@ export default function ShoppingListScreen({ navigation, route }) {
       <View style={[styles.header, extra.topRow]}>
         <View style={{ flex: 1 }}>
           <Text style={styles.title}>Danh sách đi chợ</Text>
-          <Text style={styles.subtitle}>Mua đủ món, cất đúng chỗ</Text>
+          <Text style={styles.subtitle}>
+            {list.length ? 'Đánh dấu món đã mua để cất vào tủ' : 'Danh sách mua sắm của bạn'}
+          </Text>
         </View>
         {!!list.length && (
           <Pressable
             accessibilityRole="button"
-            disabled={vm.busy}
+            disabled={vm.busy || vm.offline}
             onPress={() => openEditor()}
             style={extra.addTop}
           >
@@ -118,19 +140,39 @@ export default function ShoppingListScreen({ navigation, route }) {
       <SectionList
         style={{ flex: 1 }}
         sections={sections}
+        refreshing={vm.refreshing}
+        onRefresh={() => vm.reload().catch(() => {})}
+        ListHeaderComponent={
+          (!vm.ready || vm.syncError) && (
+            <View style={extra.sync}>
+              <DataState
+                ready={vm.ready}
+                error={vm.syncError}
+                onRetry={() => vm.reload().catch(() => {})}
+              />
+            </View>
+          )
+        }
         stickySectionHeadersEnabled={false}
         keyExtractor={(item) => String(item.id)}
         contentContainerStyle={[{ paddingBottom: 16 }, !list.length && { flexGrow: 1 }]}
         ListEmptyComponent={
-          <View style={extra.empty}>
-            <View style={extra.emptyIcon}>
-              <Ionicons name="cart-outline" size={38} color={COLORS.primary} />
+          vm.ready && (
+            <View style={extra.empty}>
+              <View style={extra.emptyIcon}>
+                <Ionicons name="cart-outline" size={38} color={COLORS.primary} />
+              </View>
+              <Text style={extra.emptyTitle}>Hôm nay bạn cần mua gì?</Text>
+              <Text style={extra.emptyText}>
+                Thêm những món cần mua vào đây. Khi mua xong, tích chọn để cất vào tủ lạnh.
+              </Text>
+              <Action
+                title="＋ Thêm món cần mua"
+                disabled={vm.busy || vm.offline}
+                onPress={() => openEditor()}
+              />
             </View>
-            <Text style={extra.emptyTitle}>Hôm nay bạn cần mua gì?</Text>
-            <Text style={extra.emptyText}>
-              Thêm những món cần mua vào đây. Khi mua xong, tích chọn để cất vào tủ lạnh.
-            </Text>
-          </View>
+          )
         }
         renderSectionHeader={({ section }) => (
           <View style={extra.sectionHeader}>
@@ -141,7 +183,7 @@ export default function ShoppingListScreen({ navigation, route }) {
         renderItem={({ item }) => (
           <View style={[styles.itemRow, item.bought && { backgroundColor: '#F0F6ED' }]}>
             <Pressable
-              disabled={vm.busy}
+              disabled={vm.busy || vm.offline}
               accessibilityRole="checkbox"
               accessibilityState={{ checked: item.bought }}
               accessibilityLabel={
@@ -157,7 +199,7 @@ export default function ShoppingListScreen({ navigation, route }) {
               />
             </Pressable>
             <Pressable
-              disabled={vm.busy}
+              disabled={vm.busy || vm.offline}
               accessibilityRole="button"
               accessibilityLabel={'Sửa ' + item.name}
               onPress={() => openEditor(item)}
@@ -174,7 +216,7 @@ export default function ShoppingListScreen({ navigation, route }) {
             <Pressable
               accessibilityLabel={'Thao tác với ' + item.name}
               accessibilityRole="button"
-              disabled={vm.busy}
+              disabled={vm.busy || vm.offline}
               onPress={() => showItemActions(item)}
               style={extra.menu}
             >
@@ -183,25 +225,18 @@ export default function ShoppingListScreen({ navigation, route }) {
           </View>
         )}
       />
-      <View style={extra.footer}>
-        {!!vm.boughtCount && (
-          <Text style={extra.footerHint}>Mỗi món sẽ được chọn ngăn và hạn dùng riêng.</Text>
-        )}
-        <Action
-          title={
-            vm.busy
-              ? 'Đang lưu…'
-              : vm.boughtCount
-                ? 'Cất ' + vm.boughtCount + ' món vào tủ lạnh'
-                : '＋ Thêm món cần mua'
-          }
-          disabled={vm.busy}
-          onPress={() => (vm.boughtCount ? vm.openTransfer() : openEditor())}
-        />
-      </View>
+      {!!vm.boughtCount && (
+        <View style={extra.footer}>
+          <Action
+            title={vm.busy ? 'Đang lưu…' : 'Cất ' + vm.boughtCount + ' món vào tủ lạnh'}
+            disabled={vm.busy || vm.offline}
+            onPress={() => vm.openTransfer()}
+          />
+        </View>
+      )}
 
       <ShoppingItemEditor vm={vm} />
-      <Modal visible={vm.mode === 'transfer'} animationType="slide" onRequestClose={vm.close}>
+      <Modal visible={vm.mode === 'transfer'} animationType="slide" onRequestClose={closeTransfer}>
         <SafeAreaView style={ui.screen}>
           <KeyboardAvoidingView
             style={{ flex: 1 }}
@@ -211,10 +246,11 @@ export default function ShoppingListScreen({ navigation, route }) {
               <Header
                 title="Cất vào tủ lạnh"
                 subtitle="Kiểm tra từng món trước khi cất"
-                onBack={vm.close}
+                onBack={closeTransfer}
               />
             </View>
             <ScrollView
+              ref={transferScroll}
               contentContainerStyle={[ui.content, { paddingTop: 0 }]}
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="on-drag"
@@ -224,12 +260,20 @@ export default function ShoppingListScreen({ navigation, route }) {
                 được chuyển vào tủ lạnh.
               </Text>
               {vm.transfer.map((item, index) => (
-                <View key={item.shoppingId} style={inputCardStyle}>
+                <View
+                  key={item.shoppingId}
+                  style={inputCardStyle}
+                  onLayout={(event) => {
+                    transferPositions.current[item.shoppingId] = event.nativeEvent.layout.y;
+                  }}
+                >
                   <Text style={[ui.name, { marginBottom: 16 }]}>
                     {index + 1}. {item.name}
                   </Text>
                   <QuantityControl
                     label="Số lượng thực mua"
+                    error={vm.transferErrors[item.shoppingId]?.quantity}
+                    unitError={vm.transferErrors[item.shoppingId]?.unit}
                     value={item.quantity}
                     unit={item.unit}
                     onChange={(value) => vm.setTransferField(item.shoppingId, 'quantity', value)}
@@ -241,13 +285,14 @@ export default function ShoppingListScreen({ navigation, route }) {
                       )
                     }
                     onUnitChange={(unit) => vm.setTransferField(item.shoppingId, 'unit', unit)}
-                    disabled={vm.busy}
+                    disabled={vm.busy || vm.offline}
                   />
                   <View style={{ marginTop: 20 }}>
                     <StorageAndDates
                       form={item}
+                      errors={vm.transferErrors[item.shoppingId]}
                       onChange={(key, value) => vm.setTransferField(item.shoppingId, key, value)}
-                      disabled={vm.busy}
+                      disabled={vm.busy || vm.offline}
                     />
                   </View>
                 </View>
@@ -261,7 +306,7 @@ export default function ShoppingListScreen({ navigation, route }) {
               )}
               <Action
                 title={vm.busy ? 'Đang lưu…' : 'Xác nhận cất ' + vm.transfer.length + ' món'}
-                disabled={vm.busy}
+                disabled={vm.busy || vm.offline}
                 onPress={transfer}
               />
             </View>
@@ -327,6 +372,7 @@ const styles = StyleSheet.create({
 });
 
 const extra = StyleSheet.create({
+  sync: { paddingHorizontal: 16, paddingBottom: 12 },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   addTop: {
     minHeight: 44,
@@ -372,7 +418,6 @@ const extra = StyleSheet.create({
   itemBody: { flex: 1, minHeight: 48, justifyContent: 'center' },
   menu: { width: 44, minHeight: 48, alignItems: 'flex-end', justifyContent: 'center' },
   footer: { paddingTop: 8, paddingBottom: 12 },
-  footerHint: { color: COLORS.muted, fontSize: 12, lineHeight: 18, textAlign: 'center' },
   modalHeader: { paddingHorizontal: 16, paddingTop: 12 },
   modalFooter: {
     padding: 16,

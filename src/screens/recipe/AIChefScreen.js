@@ -1,22 +1,27 @@
 import React, { useMemo, useRef, useState } from 'react';
 import {
-  View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Pressable,
+  StyleSheet,
   Text,
   TextInput,
-  FlatList,
-  ScrollView,
-  Pressable,
-  Image,
-  Alert,
-  StyleSheet,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Button, Empty, PageHeader, ui } from '../../components/AppUI';
-import { useRecipes } from '../../viewmodels/RecipeProvider';
+import RecipeCard from '../../components/RecipeCard';
+import { COLORS } from '../../constants/theme';
+import { validateRecipe } from '../../models/recipes';
 import { generateRecipes } from '../../services/recipeService';
-import { normalizeName, validateRecipe } from '../../models/recipes';
-const topics = ['Chicken', 'Pasta', 'Beef', 'Fish', 'Soup', 'Cake'];
+import { useRecipes } from '../../viewmodels/RecipeProvider';
+
+const filters = ['Tất cả', 'Yêu thích', 'AI đã chọn'];
+const topics = ['Chicken', 'Pasta', 'Fish'];
+const all = 'Tất cả';
+
 export default function AIChefScreen({ navigation, route }) {
   const {
     recipes,
@@ -27,289 +32,327 @@ export default function AIChefScreen({ navigation, route }) {
     error: cloudError,
     working,
   } = useRecipes();
-  const [query, setQuery] = useState(''),
-    [filter, setFilter] = useState('Tất cả');
-  const [area, setArea] = useState('Tất cả'),
-    [results, setResults] = useState(null);
-  const [loading, setLoading] = useState(false),
-    [error, setError] = useState('');
-  const running = useRef(false);
+  const [query, setQuery] = useState('');
+  const [result, setResult] = useState(null);
+  const [filter, setFilter] = useState(all);
+  const [area, setArea] = useState(all);
+  const [areasOpen, setAreasOpen] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [searchError, setSearchError] = useState(null);
+  const searchingRef = useRef(false);
+  const catalog = filter === all && result ? result.recipes : recipes;
   const areas = useMemo(
-    () => ['Tất cả', ...new Set((results || recipes).map((r) => r.area).filter(Boolean))],
-    [recipes, results],
+    () => Array.from(new Set(catalog.map((recipe) => recipe.area).filter(Boolean))).sort(),
+    [catalog],
   );
-  const visible = useMemo(
-    () =>
-      (results || recipes).filter(
-        (r) =>
-          (filter !== 'Yêu thích' || favorites.includes(r.id)) &&
-          (filter !== 'AI đã chọn' || r.suggestedAt || r.reason) &&
-          (area === 'Tất cả' || r.area === area) &&
-          (results !== null ||
-            !query.trim() ||
-            normalizeName(`${r.title} ${r.area} ${r.category || ''}`).includes(
-              normalizeName(query),
-            )),
-      ),
-    [recipes, results, filter, area, favorites, query],
+  const visible = catalog.filter(
+    (recipe) =>
+      (filter !== 'Yêu thích' || favorites.includes(recipe.id)) &&
+      (filter !== 'AI đã chọn' || recipe.suggestedAt || recipe.reason) &&
+      (area === all || recipe.area === area),
   );
+
   const search = async (term = query) => {
-    if (running.current || !term.trim()) return;
-    running.current = true;
-    setLoading(true);
-    setError('');
-    setArea('Tất cả');
-    setFilter('Tất cả');
+    const submitted = term.trim();
+    if (searchingRef.current || !submitted) return;
+    searchingRef.current = true;
+    setSearching(true);
+    setSearchError(null);
     try {
-      const result = await generateRecipes({ action: 'catalog', query: term.trim() });
-      setResults((result.recipes || []).map(validateRecipe));
-      await reload();
-    } catch (err) {
-      setError(err.message);
+      const response = await generateRecipes({ action: 'catalog', query: submitted });
+      setResult({
+        term: submitted,
+        recipes: (response.recipes || []).map(validateRecipe),
+        fromCatalog: response.mode === 'catalog',
+      });
+      setFilter(all);
+      setArea(all);
+      setAreasOpen(false);
+      reload().catch(() => {});
+    } catch (error) {
+      setSearchError({ term: submitted, message: error.message });
     } finally {
-      running.current = false;
-      setLoading(false);
+      searchingRef.current = false;
+      setSearching(false);
     }
   };
+
+  const refresh = async () => {
+    setRefreshing(true);
+    try {
+      await reload();
+    } catch {
+      // RecipeProvider exposes the catalog failure through cloudError.
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const changeQuery = (value) => {
+    setQuery(value);
+    setSearchError(null);
+  };
+
   const chip = (label, selected, onPress) => (
     <Pressable
       key={label}
       accessibilityRole="button"
-      accessibilityState={{ selected }}
+      accessibilityState={{ selected, disabled: searching }}
+      disabled={searching}
       onPress={onPress}
       style={[s.chip, selected && s.chipActive]}
     >
-      <Text style={[s.chipText, selected && { color: '#fff' }]}>{label}</Text>
+      <Text style={[s.chipText, selected && s.chipTextActive]}>{label}</Text>
     </Pressable>
   );
+
+  const title =
+    filter !== all ? filter : result ? `Kết quả cho “${result.term}”` : 'Khám phá món ăn';
+
   return (
-    <SafeAreaView style={ui.screen}>
+    <SafeAreaView
+      edges={route?.name === 'AIChef' ? undefined : ['top', 'left', 'right']}
+      style={ui.screen}
+    >
       <PageHeader
-        title="Khám phá món ăn"
-        subtitle="Một vòng thế giới, ngay trong căn bếp"
+        title="Món ăn"
         onBack={route?.name === 'AIChef' ? () => navigation.goBack() : undefined}
+        right={
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Trò chuyện với Bếp AI"
+            onPress={() => navigation.navigate('AIChat')}
+            style={s.aiButton}
+          >
+            <Ionicons name="chatbubble-ellipses-outline" color={COLORS.darkGreen} size={20} />
+          </Pressable>
+        }
       />
       <FlatList
         data={visible}
-        keyExtractor={(r) => r.id}
+        keyExtractor={(recipe) => recipe.id}
         contentContainerStyle={ui.content}
         keyboardShouldPersistTaps="handled"
-        refreshing={loading}
-        onRefresh={() => reload().catch((e) => setError(e.message))}
+        keyboardDismissMode="on-drag"
+        refreshing={refreshing}
+        onRefresh={refresh}
+        ItemSeparatorComponent={() => <View style={s.separator} />}
         ListHeaderComponent={
-          <View style={{ gap: 16 }}>
+          <View style={s.head}>
             <Pressable
               accessibilityRole="button"
-              onPress={() => navigation.navigate('AIChat')}
-              style={s.hero}
+              style={s.suggest}
+              onPress={() =>
+                navigation.navigate('AIChat', {
+                  initialDraft: 'Gợi ý một món từ tủ lạnh và hướng dẫn mình nấu từng bước.',
+                  initialUseInventory: true,
+                })
+              }
             >
-              <View style={s.heroIcon}>
-                <Ionicons name="sparkles" size={29} color="#F4C773" />
+              <View style={s.suggestIcon}>
+                <Ionicons name="sparkles-outline" size={23} color="#FFEDBE" />
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.heroTitle}>Có Bếp AI cùng nghĩ món</Text>
-                <Text style={s.heroBody}>
-                  Hỏi cách nấu, chọn món theo tủ lạnh hoặc thử điều mới.
-                </Text>
+              <View style={s.flex}>
+                <Text style={s.suggestTitle}>Gợi ý từ tủ lạnh</Text>
+                <Text style={s.suggestText}>Nấu với nguyên liệu bạn đang có</Text>
               </View>
-              <Ionicons name="arrow-forward" size={24} color="white" />
+              <Ionicons name="arrow-forward" size={19} color="#FFEDBE" />
             </Pressable>
-            <View style={[ui.row, s.search]}>
-              <Ionicons name="search" size={21} color="#657463" />
+            <View style={s.search}>
               <TextInput
-                editable={!loading}
-                accessibilityLabel="Tìm món ăn trên thế giới"
-                style={{ flex: 1, fontSize: 16, paddingVertical: 12 }}
-                placeholder="Tìm món: pasta, chicken, tacos…"
+                accessibilityLabel="Tên món ăn bằng tiếng Anh"
+                placeholder="Tên món tiếng Anh, ví dụ pasta"
+                placeholderTextColor={COLORS.muted}
+                style={s.input}
+                editable={!searching}
                 value={query}
                 maxLength={60}
-                onChangeText={(v) => {
-                  setQuery(v);
-                  setResults(null);
-                }}
+                onChangeText={changeQuery}
                 returnKeyType="search"
                 onSubmitEditing={() => search()}
               />
-              {!!query && (
+              {!!query && !searching && (
                 <Pressable
+                  accessibilityRole="button"
                   accessibilityLabel="Xóa tìm kiếm"
-                  onPress={() => {
-                    setQuery('');
-                    setResults(null);
-                  }}
                   style={ui.iconButton}
+                  onPress={() => {
+                    changeQuery('');
+                    setResult(null);
+                    setArea(all);
+                  }}
                 >
-                  <Ionicons name="close-circle" size={21} color="#657463" />
+                  <Ionicons name="close-circle-outline" size={20} color={COLORS.muted} />
+                </Pressable>
+              )}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Tìm trên thế giới"
+                accessibilityState={{ disabled: searching || !query.trim(), busy: searching }}
+                disabled={searching || !query.trim()}
+                onPress={() => search()}
+                style={s.searchButton}
+              >
+                {searching ? (
+                  <ActivityIndicator color={COLORS.primary} />
+                ) : (
+                  <Ionicons
+                    name="search"
+                    size={21}
+                    color={query.trim() ? COLORS.primary : COLORS.muted}
+                  />
+                )}
+              </Pressable>
+            </View>
+            <View style={s.chips}>
+              {filters.map((name) =>
+                chip(name, filter === name, () => {
+                  setFilter(name);
+                  setArea(all);
+                  setAreasOpen(false);
+                }),
+              )}
+              {areas.length > 0 && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: areasOpen }}
+                  onPress={() => setAreasOpen(!areasOpen)}
+                  style={s.areaButton}
+                >
+                  <Ionicons name="options-outline" size={19} color={COLORS.primary} />
+                  <Text style={s.chipText}>{area === all ? 'Ẩm thực' : area}</Text>
                 </Pressable>
               )}
             </View>
-            <Button
-              title="Tìm trên thế giới"
-              busy={loading}
-              disabled={!query.trim()}
-              onPress={() => search()}
-            />
-            <Text style={ui.muted}>
-              Tìm theo tên tiếng Anh. Không cần có sẵn nguyên liệu trong tủ lạnh. Bạn có thể nhờ AI
-              giải thích công thức bằng tiếng Việt.
-            </Text>
-            <View style={s.wrap}>
-              {topics.map((t) =>
-                chip(t, false, () => {
-                  setQuery(t);
-                  search(t);
-                }),
-              )}
-            </View>
-            <View style={s.wrap}>
-              {['Tất cả', 'Yêu thích', 'AI đã chọn'].map((t) =>
-                chip(t, filter === t, () => setFilter(t)),
-              )}
-            </View>
-            <Text style={ui.heading}>Ẩm thực các nước</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: 8 }}
-            >
-              {areas.map((t) => chip(t, area === t, () => setArea(t)))}
-            </ScrollView>
-            {!!(error || cloudError) && (
-              <View style={ui.card}>
-                <Text accessibilityRole="alert" style={ui.error}>
-                  {error || cloudError}
-                </Text>
-                <Button
-                  secondary
-                  title="Tải lại"
-                  onPress={() =>
-                    reload()
-                      .then(() => setError(''))
-                      .catch((e) => setError(e.message))
-                  }
-                />
+            {areasOpen && (
+              <View style={s.chips}>
+                {[all, ...areas].map((name) =>
+                  chip(name, area === name, () => {
+                    setArea(name);
+                    setAreasOpen(false);
+                  }),
+                )}
               </View>
             )}
-            <View style={[ui.row, { justifyContent: 'space-between' }]}>
-              <Text style={ui.heading}>
-                {results !== null ? 'Kết quả tìm kiếm' : 'Cảm hứng hôm nay'}
+            {filter === all && result?.fromCatalog && (
+              <Text style={ui.muted}>
+                Kết quả từ danh mục đã tải. Nguồn tra cứu trực tiếp đang gián đoạn.
               </Text>
+            )}
+            {!!searchError && (
+              <View style={ui.card}>
+                <Text accessibilityRole="alert" style={ui.error}>
+                  {searchError.message}
+                </Text>
+                <Button secondary title="Thử tìm lại" onPress={() => search(searchError.term)} />
+              </View>
+            )}
+            {!!cloudError && !result && (
+              <View style={ui.card}>
+                <Text accessibilityRole="alert" style={ui.error}>
+                  {recipes.length
+                    ? 'Danh mục có thể chưa cập nhật.'
+                    : 'Chưa tải được danh mục món ăn.'}
+                </Text>
+                <Button secondary busy={refreshing} title="Thử tải danh mục" onPress={refresh} />
+              </View>
+            )}
+            <View style={s.section}>
+              <Text style={[ui.heading, s.flex]}>{title}</Text>
               <Text style={ui.muted}>{visible.length} món</Text>
             </View>
           </View>
         }
         ListEmptyComponent={
-          <Empty
-            icon="restaurant-outline"
-            title={loading || !ready ? 'Đang tải món ăn…' : 'Chưa tìm thấy món phù hợp'}
-            detail="Thử tên món khác, đổi bộ lọc hoặc khám phá nhóm món ở trên."
-          />
-        }
-        renderItem={({ item: r }) => (
-          <View style={[ui.card, { padding: 0, overflow: 'hidden', marginBottom: 16 }]}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Xem công thức ${r.title}`}
-              onPress={() => navigation.navigate('RecipeDetail', { recipe: r })}
-            >
-              {r.image ? (
-                <Image source={{ uri: r.image }} style={{ height: 200, width: '100%' }} />
-              ) : (
-                <View style={s.placeholder}>
-                  <Ionicons name="restaurant" size={40} color="#759475" />
+          searching || (!ready && !cloudError && !result) ? (
+            <ActivityIndicator accessibilityLabel="Đang tải món ăn" color={COLORS.primary} />
+          ) : cloudError && !result && !recipes.length ? null : (
+            <View>
+              <Empty
+                icon={filter === 'Yêu thích' ? 'heart-outline' : 'restaurant-outline'}
+                title={filter === 'Yêu thích' ? 'Chưa lưu món nào' : 'Chưa có món phù hợp'}
+                detail={
+                  filter === 'Yêu thích'
+                    ? 'Chạm vào trái tim để lưu công thức.'
+                    : 'Đổi bộ lọc hoặc thử tìm tên món tiếng Anh.'
+                }
+              />
+              {filter === all && (
+                <View style={[s.chips, s.center]}>
+                  {topics.map((topic) =>
+                    chip(topic, false, () => {
+                      changeQuery(topic);
+                      search(topic);
+                    }),
+                  )}
                 </View>
               )}
-              <View style={{ padding: 16, gap: 6 }}>
-                <Text style={s.region}>{r.area || 'Ẩm thực thế giới'} · TheMealDB</Text>
-                <Text style={s.dish}>{r.title}</Text>
-                {!!r.reason && (
-                  <Text numberOfLines={3} style={ui.body}>
-                    {r.reason}
-                  </Text>
-                )}
-                <Text style={ui.muted}>
-                  {r.ingredients.length} nguyên liệu · {r.steps.length} bước nấu
-                </Text>
-                <Text style={{ color: '#286343', fontWeight: '700', marginTop: 6 }}>
-                  Xem nguyên liệu & cách làm →
-                </Text>
-              </View>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={favorites.includes(r.id) ? 'Bỏ yêu thích' : 'Lưu món yêu thích'}
-              accessibilityState={{ selected: favorites.includes(r.id) }}
-              disabled={working}
-              onPress={() =>
-                toggleFavorite(r.id).catch((e) => Alert.alert('Chưa lưu được', e.message))
-              }
-              style={s.heart}
-            >
-              <Ionicons
-                name={favorites.includes(r.id) ? 'heart' : 'heart-outline'}
-                size={24}
-                color="#286343"
-              />
-            </Pressable>
-          </View>
+            </View>
+          )
+        }
+        renderItem={({ item }) => (
+          <RecipeCard
+            recipe={item}
+            favorite={favorites.includes(item.id)}
+            working={working}
+            onOpen={() => navigation.navigate('RecipeDetail', { recipe: item })}
+            onFavorite={() =>
+              toggleFavorite(item.id).catch((error) => Alert.alert('Chưa lưu được', error.message))
+            }
+          />
         )}
       />
     </SafeAreaView>
   );
 }
+
 const s = StyleSheet.create({
-  hero: {
-    backgroundColor: '#183F31',
-    borderRadius: 24,
-    padding: 20,
-    flexDirection: 'row',
-    gap: 12,
-    alignItems: 'center',
-  },
-  heroIcon: {
-    width: 48,
-    height: 48,
+  flex: { flex: 1 },
+  head: { gap: 9, marginBottom: 10 },
+  aiButton: { ...ui.iconButton, borderRadius: 14, backgroundColor: '#E6EEDF' },
+  suggest: {
+    backgroundColor: '#193E30',
     borderRadius: 16,
-    backgroundColor: '#2B5746',
+    padding: 10,
+    gap: 9,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  heroTitle: { color: '#fff', fontSize: 19, fontWeight: '800', marginBottom: 7 },
-  heroBody: { color: '#D1E3D6', fontSize: 14, lineHeight: 21 },
+  suggestIcon: { backgroundColor: '#325746', borderRadius: 11, padding: 8 },
+  suggestTitle: { fontSize: 16, fontWeight: '800', color: '#FFFDF5' },
+  suggestText: { fontSize: 13, color: '#DDEDDC' },
   search: {
+    alignItems: 'center',
+    flexDirection: 'row',
     borderWidth: 1,
-    borderColor: '#DDE5D9',
-    borderRadius: 18,
-    backgroundColor: 'white',
-    paddingLeft: 14,
+    borderColor: COLORS.divider,
+    borderRadius: 13,
+    backgroundColor: COLORS.white,
   },
-  wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  input: {
+    flex: 1,
+    minHeight: 48,
+    color: COLORS.text,
+    fontSize: 15,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  searchButton: { ...ui.iconButton, borderLeftWidth: 1, borderLeftColor: COLORS.divider },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: {
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    borderRadius: 24,
-    backgroundColor: '#E8EFE4',
     minHeight: 44,
-  },
-  chipActive: { backgroundColor: '#286343' },
-  chipText: { color: '#344E39', fontWeight: '600' },
-  region: { color: '#61775F', fontSize: 12, fontWeight: '700' },
-  dish: { fontSize: 22, fontWeight: '800', color: '#193729' },
-  heart: {
-    position: 'absolute',
-    right: 14,
-    top: 14,
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: '#FFF',
-    alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: 22,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    backgroundColor: '#E7EFDF',
   },
-  placeholder: {
-    height: 150,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#E7EFE0',
-  },
+  chipActive: { backgroundColor: COLORS.darkGreen },
+  chipText: { color: COLORS.darkGreen, fontSize: 13, fontWeight: '700' },
+  chipTextActive: { color: COLORS.white },
+  areaButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 4, padding: 6 },
+  section: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginTop: 4 },
+  separator: { height: 12 },
+  center: { justifyContent: 'center' },
 });

@@ -73,6 +73,11 @@ export function validateFood(input) {
   return { ...base, storageAreaId: input.storageAreaId, purchasedAt, expiresAt, category, notes };
 }
 
+export function compareFoodPriority(a, b) {
+  const todayFirst = Number(b.days === 0) - Number(a.days === 0);
+  return todayFirst || a.days - b.days || a.name.localeCompare(b.name, 'vi');
+}
+
 export function decorateFood(food, now = new Date()) {
   // UTC arithmetic on calendar components avoids 23/25-hour DST days.
   const calendarDay = value => {

@@ -104,11 +104,14 @@ export default function CookingModeScreen({ navigation, route }) {
       stopAlarm();
       return;
     }
-    const seconds = remaining || step.seconds || Number(manualMinutes) * 60;
+    const manual = Number(manualMinutes);
+    const seconds =
+      remaining || step.seconds || (Number.isInteger(manual) && manual >= 1 ? manual * 60 : 0);
     if (!Number.isFinite(seconds) || seconds < 1 || seconds > 86400) {
       setError('Nhập số phút hẹn giờ từ 1 đến 1440.');
       return;
     }
+    setError('');
     deadline.current = Date.now() + seconds * 1000;
     setRemaining(seconds);
     setRunning(true);
@@ -196,9 +199,14 @@ export default function CookingModeScreen({ navigation, route }) {
         <View style={ui.content}>
           <Text style={ui.heading}>{recipe.title}</Text>
           <Text style={ui.body}>
-            Lượng nguyên liệu bạn xác nhận đã được cập nhật. Chúc bạn ngon miệng!
+            {review.some((entry) => entry.selected)
+              ? 'Tồn kho đã được cập nhật theo lượng nguyên liệu bạn xác nhận.'
+              : 'Bạn đã hoàn thành món ăn. Tủ lạnh giữ nguyên số lượng.'}
           </Text>
-          <Button title="Về tủ lạnh" onPress={() => navigation.popToTop()} />
+          <Button
+            title="Về tủ lạnh"
+            onPress={() => navigation.navigate('MainTabs', { screen: 'Tủ lạnh' })}
+          />
         </View>
       </SafeAreaView>
     );
@@ -268,7 +276,7 @@ export default function CookingModeScreen({ navigation, route }) {
             </View>
             <View style={ui.card}>
               <Text style={ui.heading}>
-                {index + 1}. {step.title}
+                {step.title === 'Bước ' + (index + 1) ? step.title : index + 1 + '. ' + step.title}
               </Text>
               <Text style={ui.body}>{step.desc}</Text>
             </View>
@@ -282,7 +290,11 @@ export default function CookingModeScreen({ navigation, route }) {
                     accessibilityLabel="Số phút hẹn giờ"
                     style={ui.input}
                     value={manualMinutes}
-                    onChangeText={setManualMinutes}
+                    onChangeText={(value) => {
+                      setManualMinutes(value);
+                      setRemaining(0);
+                      setError('');
+                    }}
                     placeholder="Số phút"
                     keyboardType="number-pad"
                     editable={!running}
@@ -297,7 +309,7 @@ export default function CookingModeScreen({ navigation, route }) {
                   </Text>
                   <Button
                     secondary
-                    title={running ? 'Tạm dừng' : remaining ? 'Bắt đầu hẹn giờ' : 'Hẹn giờ lại'}
+                    title={running ? 'Tạm dừng' : 'Bắt đầu hẹn giờ'}
                     onPress={toggleTimer}
                   />
                 </View>

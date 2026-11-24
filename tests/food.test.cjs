@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const load = require('./load-source.cjs');
-const { parseDate, formatDate, todayISO, decorateFood, validateFood, validateQuantity, parseQuantityText } = load('src/models/food.js');
+const { parseDate, formatDate, todayISO, decorateFood, compareFoodPriority, validateFood, validateQuantity, parseQuantityText } = load('src/models/food.js');
 
 test('original quantity input is split into numeric quantity and unit for SQLite', () => {
   assert.deepEqual(parseQuantityText('3 quả'), { quantity: 3, unit: 'quả' });
@@ -40,4 +40,12 @@ test('expiry boundaries are calculated from local calendar days (today, +3, +4)'
   assert.equal(food('2026-11-16').status, 'valid');
   assert.equal(food('2027-01-01').days, 50);
   assert.equal(food('2026-11-15').quantityText, '2 hộp');
+});
+
+test('items expiring today remain visible when more than three items are overdue', () => {
+  const now = new Date(2026, 10, 12);
+  const items = ['08', '09', '10', '11', '12', '13'].map((day) =>
+    decorateFood({ name: 'Sữa', purchasedAt: '2026-11-01', expiresAt: '2026-11-' + day }, now),
+  );
+  assert.deepEqual(items.sort(compareFoodPriority).slice(0, 3).map((item) => item.days), [0, -4, -3]);
 });

@@ -10,9 +10,11 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SIZES } from '../../constants/theme';
 import { supabase } from '../../services/supabase';
+import { signInWithGoogle } from '../../services/googleSignIn';
 import { authErrorMessage, validateCredentials } from '../../models/auth';
 import * as Linking from 'expo-linking';
 
@@ -24,6 +26,7 @@ export default function LoginScreen() {
   const [confirmation, setConfirmation] = useState('');
   const [visible, setVisible] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const submitting = useRef(false);
@@ -86,6 +89,23 @@ export default function LoginScreen() {
       setError(authErrorMessage(failure));
     } finally {
       submitting.current = false;
+      setBusy(false);
+    }
+  };
+  const useGoogle = async () => {
+    if (submitting.current) return;
+    submitting.current = true;
+    setBusy(true);
+    setGoogleBusy(true);
+    setError('');
+    setInfo('');
+    try {
+      await signInWithGoogle();
+    } catch (failure) {
+      setError(authErrorMessage(failure));
+    } finally {
+      submitting.current = false;
+      setGoogleBusy(false);
       setBusy(false);
     }
   };
@@ -195,13 +215,28 @@ export default function LoginScreen() {
             onPress={submit}
             style={[styles.primaryBtn, busy && { opacity: 0.6 }]}
           >
-            {busy ? (
+            {busy && !googleBusy ? (
               <ActivityIndicator color="white" />
             ) : (
               <Text style={styles.primaryBtnText}>
                 {registering ? 'Tạo tài khoản' : 'Đăng nhập'}
               </Text>
             )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Tiếp tục bằng Google"
+            accessibilityState={{ disabled: busy, busy: googleBusy }}
+            disabled={busy}
+            onPress={useGoogle}
+            style={[styles.googleBtn, busy && { opacity: 0.6 }]}
+          >
+            {googleBusy ? (
+              <ActivityIndicator color={COLORS.primary} />
+            ) : (
+              <Ionicons name="logo-google" size={20} color={COLORS.text} />
+            )}
+            <Text style={styles.googleLabel}>Tiếp tục bằng Google</Text>
           </TouchableOpacity>
           {!registering && (
             <TouchableOpacity
@@ -273,6 +308,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 10,
   },
+  googleBtn: {
+    minHeight: 52,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
+    borderRadius: SIZES.radius,
+    backgroundColor: COLORS.white,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  googleLabel: { color: COLORS.text, fontSize: 15, fontWeight: '600', flexShrink: 1 },
   primaryBtnText: { color: COLORS.white, fontSize: 16, fontWeight: '600' },
   hintBox: { backgroundColor: '#E8F5E9', borderRadius: 8, padding: 12, marginTop: 16 },
   hintText: { fontSize: 13, lineHeight: 20, color: COLORS.darkGreen },

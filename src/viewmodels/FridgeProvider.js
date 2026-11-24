@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { AppState, ActivityIndicator, View, Text, Button } from 'react-native';
+import { AppState } from 'react-native';
 import { createSupabaseFridgeRepository } from '../repositories/supabaseFridgeRepository';
 import { supabase } from '../services/supabase';
 import { useAuth } from './AuthProvider';
@@ -200,6 +200,7 @@ export function FridgeProvider({ children }) {
     () => ({
       foods,
       ready,
+      error,
       shopping: snapshot.shopping,
       busy,
       mutate,
@@ -215,6 +216,7 @@ export function FridgeProvider({ children }) {
     [
       foods,
       ready,
+      error,
       snapshot.shopping,
       busy,
       mutate,
@@ -228,23 +230,7 @@ export function FridgeProvider({ children }) {
       reminderError,
     ],
   );
-  return (
-    <FridgeContext.Provider value={value}>
-      {!ready && !error && (
-        <View style={{ padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <ActivityIndicator color="#2E7D32" />
-          <Text>Đang tải dữ liệu từ Supabase…</Text>
-        </View>
-      )}
-      {!!error && (
-        <View style={{ backgroundColor: '#FFF3E0', padding: 16 }}>
-          <Text accessibilityRole="alert">{error}</Text>
-          <Button title="Tải lại dữ liệu" onPress={initialize} />
-        </View>
-      )}
-      {children}
-    </FridgeContext.Provider>
-  );
+  return <FridgeContext.Provider value={value}>{children}</FridgeContext.Provider>;
 }
 export function useFridgeViewModel() {
   const context = useContext(FridgeContext);

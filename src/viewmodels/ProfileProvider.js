@@ -2,7 +2,7 @@ import React, { createContext, useContext, useCallback, useEffect, useRef, useSt
 import { AppState } from 'react-native';
 import { supabase } from '../services/supabase';
 import { useAuth } from './AuthProvider';
-import { validateProfile } from '../models/profile';
+import { getFoodPreferences, validateFoodPreferences, validateProfile } from '../models/profile';
 const Context = createContext(null);
 export function ProfileProvider({ children }) {
   const { user } = useAuth();
@@ -77,6 +77,20 @@ export function ProfileProvider({ children }) {
     if (!data.length) throw new Error('Thông tin đã thay đổi. Tải lại hồ sơ trước khi cập nhật.');
     await reload();
   };
+  const saveFoodPreferences = async (input, original) => {
+    const fields = validateFoodPreferences(input);
+    let query = supabase.from('profiles').update(fields).eq('user_id', user.id);
+    for (const [key, value] of Object.entries(getFoodPreferences(original)))
+      query = query.eq(key, value);
+    const { data, error: failure } = await query.select('user_id');
+    if (failure) throw failure;
+    if (!data.length) {
+      reload().catch(() => {});
+      throw new Error('Sở thích đã thay đổi. Tải lại dữ liệu rồi kiểm tra trước khi lưu.');
+    }
+    if (active.current) setProfile((current) => current && { ...current, ...fields });
+    reload().catch(() => {});
+  };
   const setReminders = async (enabled) => {
     const { error: failure } = await supabase
       .from('profiles')
@@ -88,7 +102,18 @@ export function ProfileProvider({ children }) {
     await reload();
   };
   return (
-    <Context.Provider value={{ profile, avatarUrl, error, loading, reload, save, setReminders }}>
+    <Context.Provider
+      value={{
+        profile,
+        avatarUrl,
+        error,
+        loading,
+        reload,
+        save,
+        saveFoodPreferences,
+        setReminders,
+      }}
+    >
       {children}
     </Context.Provider>
   );

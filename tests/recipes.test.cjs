@@ -86,3 +86,50 @@ test('AI payload validation rejects malformed, oversized and impossible recipes'
     assert.throws(() => validateRecipe(raw));
   assert.throws(() => planRecipe(LOCAL_RECIPES[0], [], 0));
 });
+
+test('verified ingredient aliases share inventory and shopping without changing unit or cut', () => {
+  const recipe = {
+    ...LOCAL_RECIPES[0],
+    ingredients: [
+      { name: 'Garlic', quantity: 32, unit: 'g' },
+      { name: 'Chicken breast', quantity: 100, unit: 'g' },
+    ],
+  };
+  const plan = planRecipe(
+    recipe,
+    [food('garlic', 'Tỏi', 20, 'g'), food('thigh', 'Đùi gà', 200, 'g')],
+    2,
+    now,
+  );
+  assert.deepEqual(
+    plan.ingredients.map((item) => item.missing),
+    [12, 100],
+  );
+  assert.deepEqual(
+    plan.entries.map((entry) => entry.foodId),
+    ['garlic'],
+  );
+  assert.deepEqual(planShopping(plan.ingredients, [{ name: 'Tỏi', quantity: 0.012, unit: 'kg' }]), [
+    { name: 'Chicken breast', unit: 'g', quantity: 100 },
+  ]);
+});
+
+test('catalog recipe headings do not turn into empty cooking steps', () => {
+  const recipe = validateRecipe({
+    ...LOCAL_RECIPES[0],
+    source: { provider: 'TheMealDB', id: '123', url: 'https://www.themealdb.com/meal/123' },
+    steps: [
+      { title: 'Bước 1', desc: 'STEP 1', seconds: 0 },
+      { title: 'Bước 2', desc: 'Prepare the ingredients.', seconds: 0 },
+      { title: 'Bước 3', desc: 'Bước 2:', seconds: 0 },
+      { title: 'Bước 4', desc: 'Serve warm.', seconds: 0 },
+    ],
+  });
+  assert.deepEqual(
+    recipe.steps.map((step) => [step.title, step.desc]),
+    [
+      ['Bước 1', 'Prepare the ingredients.'],
+      ['Bước 2', 'Serve warm.'],
+    ],
+  );
+});

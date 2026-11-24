@@ -1,16 +1,25 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Switch, Pressable, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Button, Empty, PageHeader, ui } from '../../components/AppUI';
+import { Button, DataState, Empty, PageHeader, ui } from '../../components/AppUI';
+import { compareFoodPriority } from '../../models/food';
 import { useFridgeViewModel } from '../../viewmodels/FridgeProvider';
 
 export default function ExpiryAlertScreen({ navigation, route }) {
-  const { foods, reminderEnabled, toggleReminder, reminderError } = useFridgeViewModel();
+  const {
+    foods,
+    reminderEnabled,
+    toggleReminder,
+    reminderError,
+    ready = true,
+    error,
+    reload,
+  } = useFridgeViewModel();
   const [filter, setFilter] = useState(route.params?.status || 'all');
   const [saving, setSaving] = useState(false);
-  const urgent = foods.filter(
-    (f) => f.status !== 'valid' && (filter === 'all' || f.status === filter),
-  );
+  const urgent = foods
+    .filter((food) => food.status !== 'valid' && (filter === 'all' || food.status === filter))
+    .sort(compareFoodPriority);
   const toggle = async (value) => {
     if (saving) return;
     setSaving(true);
@@ -50,7 +59,8 @@ export default function ExpiryAlertScreen({ navigation, route }) {
             </Pressable>
           ))}
         </View>
-        {!urgent.length && (
+        <DataState ready={ready} error={error} onRetry={() => reload().catch(() => {})} />
+        {ready && !urgent.length && (
           <Empty
             title="Không có thực phẩm cần cảnh báo"
             detail="Hạn dùng được cập nhật theo ngày hiện tại."
@@ -96,7 +106,12 @@ export default function ExpiryAlertScreen({ navigation, route }) {
         </View>
         <Button
           title="Gợi ý món từ nguyên liệu còn hạn"
-          onPress={() => navigation.navigate('AIChef')}
+          onPress={() =>
+            navigation.navigate('AIChat', {
+              initialDraft: 'Gợi ý một món từ tủ lạnh và hướng dẫn mình nấu từng bước.',
+              initialUseInventory: true,
+            })
+          }
         />
       </ScrollView>
     </SafeAreaView>

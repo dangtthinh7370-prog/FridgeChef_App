@@ -63,3 +63,62 @@ test('calendar starts weeks on Monday and includes leap day without date rollove
   assert.equal(monthCells(2025, 1).filter(Boolean).length, 28);
   assert.equal(monthCells(2026, 10).filter(Boolean).length, 30);
 });
+
+test('barcode fills known package data, keeps lot dates and preserves existing notes', () => {
+  const { readBarcodeProduct, applyBarcodeProduct } = require('./load-source.cjs')('src/models/barcode.js');
+  const product = readBarcodeProduct({
+    product_name_vi: 'Sữa tươi', brands: 'Nhãn mẫu', quantity: '6 x 250 ml',
+    product_quantity: 1500, product_quantity_unit: 'ml', categories_tags: ['en:milks'],
+  }, '12345678');
+  const form = { quantity: '2', unit: 'chai', notes: 'Để ở kệ trên', expDate: '28/11/2026', buyDate: '24/11/2026' };
+  const filled = applyBarcodeProduct(form, product);
+  assert.equal(filled.quantity, '1500');
+  assert.equal(filled.unit, 'ml');
+  assert.equal(filled.category, 'dairy');
+  assert.equal(filled.expDate, form.expDate);
+  assert.match(filled.notes, /Để ở kệ trên.*Thương hiệu: Nhãn mẫu.*Mã vạch: 12345678/s);
+  const limited = applyBarcodeProduct(form, readBarcodeProduct({ product_name: 'Unknown package', quantity: 'one pack' }, '12345678'));
+  assert.equal(limited.quantity, '2');
+  assert.equal(limited.unit, 'chai');
+});
+
+test('shopping transfer marks the first invalid item and keeps edits until a valid save', async () => {
+  const React = require('react');
+  const { act, create } = require('react-test-renderer');
+  const makeLoader = require('./load-ui.cjs');
+  const writes = [];
+  const model = makeLoader({
+    'src/viewmodels/FridgeProvider': {
+      useFridgeViewModel: () => ({
+        foods: [],
+        shopping: [
+          { id: 'one', name: 'Táo', quantity: 2, unit: 'quả', bought: true },
+          { id: 'two', name: 'Gạo', quantity: 1, unit: 'kg', bought: true },
+        ],
+        mutate: async (...args) => { writes.push(args); return 2; },
+      }),
+    },
+  })('src/viewmodels/useShoppingViewModel').default;
+  let vm;
+  function Probe() { vm = model(); return null; }
+  let tree;
+  await act(async () => { tree = create(React.createElement(Probe)); });
+  await act(async () => vm.openTransfer());
+  assert.equal(vm.transferDirty, false);
+  let result;
+  await act(async () => { result = await vm.move(); });
+  assert.equal(result.invalidId, 'one');
+  assert.ok(vm.transferErrors.one.expDate);
+  assert.ok(vm.transferErrors.two.expDate);
+  assert.equal(writes.length, 0);
+  await act(async () => vm.setTransferField('one', 'expDate', vm.transfer[0].buyDate));
+  assert.equal(vm.transferDirty, true);
+  assert.equal(vm.transferErrors.one.expDate, undefined);
+  assert.ok(vm.transferErrors.two.expDate);
+  await act(async () => vm.setTransferField('two', 'expDate', vm.transfer[1].buyDate));
+  await act(async () => { result = await vm.move(); });
+  assert.equal(result.count, 2);
+  assert.equal(vm.mode, null);
+  assert.equal(writes.length, 1);
+  await act(async () => tree.unmount());
+});

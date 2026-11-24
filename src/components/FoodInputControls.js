@@ -46,7 +46,7 @@ export function StorageAndDates({ form, onChange, disabled, errors = {} }) {
       <Text style={[s.areaName, form.storageAreaId === area.id && { color: COLORS.primary, fontWeight: '700' }]}>{area.name}</Text>
       {form.storageAreaId === area.id && <Ionicons name="checkmark-circle" size={14} color={COLORS.primary} style={s.areaCheck} />}
     </Pressable>)}</View>
-    {[['buyDate', 'Ngày mua', 'bag-handle-outline'], ['expDate', 'Hạn sử dụng', 'time-outline']].map(([key, label, icon]) => <View key={key}>
+    {[['expDate', 'Hạn sử dụng', 'time-outline'], ['buyDate', 'Ngày mua', 'bag-handle-outline']].map(([key, label, icon]) => <View key={key}>
       <Pressable disabled={disabled} accessibilityRole="button" accessibilityLabel={label + ': ' + (form[key] || 'chưa chọn') + ', chạm để mở lịch'} onPress={() => { Keyboard.dismiss(); setField(key); }} style={[s.date, key === 'expDate' && !form[key] && s.emptyDate, errors[key] && s.invalid]}>
         <View style={s.dateIcon}><Ionicons name={icon} size={20} color={COLORS.primary} /></View>
         <View style={{ flex: 1 }}><Text style={s.dateLabel}>{label}{key === 'expDate' ? ' *' : ''}</Text><Text style={[s.dateValue, !form[key] && { color: COLORS.primary }]}>{form[key] || 'Chọn ngày hết hạn'}{key === 'buyDate' && form[key] === formatDate(todayISO()) ? ' · Hôm nay' : ''}</Text></View>

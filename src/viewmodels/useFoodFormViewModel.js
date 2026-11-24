@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { useFridgeViewModel } from './FridgeProvider';
+import { applyBarcodeProduct } from '../models/barcode';
 import { validateFood } from '../models/food';
 import { createFoodForm, getFoodFormErrors, stepQuantity, QUICK_FOODS } from '../models/foodForm';
 
@@ -87,6 +88,11 @@ export default function useFoodFormViewModel(foodId, initialName) {
   return {
     form,
     setField,
+    fillFromBarcode: (product) => {
+      setForm((previous) => applyBarcodeProduct(previous, product));
+      setErrors({});
+      setError('');
+    },
     errors,
     error,
     save,

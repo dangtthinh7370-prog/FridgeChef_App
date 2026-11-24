@@ -122,13 +122,16 @@ export default function ProfileScreen({ navigation }) {
         )}
         {[
           ['Thông tin cá nhân', 'person-outline', 'EditProfile'],
+          ['Sở thích ăn uống', 'heart-outline', 'FoodPreferences'],
           ['Đổi email đăng nhập', 'mail-outline', 'ChangeEmail'],
           ['Đổi mật khẩu', 'lock-closed-outline', 'ChangePassword'],
+          ['Cảnh báo hạn dùng', 'notifications-outline', 'ExpiryAlert'],
+          ['Nhật ký thực phẩm', 'time-outline', 'Activity'],
         ].map(([label, icon, screen]) => (
           <Pressable
             key={screen}
             accessibilityRole="button"
-            disabled={working || (screen === 'EditProfile' && !profile)}
+            disabled={working || (['EditProfile', 'FoodPreferences'].includes(screen) && !profile)}
             style={[ui.card, ui.row]}
             onPress={() => navigation.navigate(screen)}
           >
@@ -142,13 +145,18 @@ export default function ProfileScreen({ navigation }) {
             {error}
           </Text>
         )}
-        <Button
-          secondary
-          title="Đăng xuất trên mọi thiết bị"
-          disabled={working}
-          onPress={() => logout(true)}
-        />
-        <Button danger title="Đăng xuất" disabled={working} onPress={() => logout(false)} />
+        <View style={ui.card}>
+          <Text style={ui.heading}>Phiên đăng nhập</Text>
+          <Button secondary title="Đăng xuất" disabled={working} onPress={() => logout(false)} />
+          <Pressable
+            accessibilityRole="button"
+            disabled={working}
+            style={[ui.iconButton, { alignSelf: 'flex-start', paddingHorizontal: 6 }]}
+            onPress={() => logout(true)}
+          >
+            <Text style={ui.error}>Đăng xuất trên mọi thiết bị</Text>
+          </Pressable>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );

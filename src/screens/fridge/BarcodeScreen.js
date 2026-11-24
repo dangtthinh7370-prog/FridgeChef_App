@@ -3,15 +3,20 @@ import { View, Text, ScrollView, TextInput, Alert, Linking } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useIsFocused } from '@react-navigation/native';
+import { readBarcodeProduct } from '../../models/barcode';
 import { Button, PageHeader, ui } from '../../components/AppUI';
 
-export default function BarcodeScreen({ navigation }) {
+export default function BarcodeScreen({ navigation, route }) {
+  const formKey = route?.params?.formKey;
+  const useProduct = (product) =>
+    formKey
+      ? navigation.navigate({ key: formKey, merge: true, params: { scannedProduct: product } })
+      : navigation.replace('AddFood', { scannedProduct: product });
   const [permission, requestPermission] = useCameraPermissions();
   const focused = useIsFocused();
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [product, setProduct] = useState(null);
   const [torch, setTorch] = useState(false);
   const scanning = useRef(false);
   const request = useRef(null);
@@ -32,27 +37,23 @@ export default function BarcodeScreen({ navigation }) {
     scanning.current = true;
     setLoading(true);
     setError('');
-    setProduct(null);
     setCode(barcode);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 12000);
     request.current = controller;
     try {
       const response = await fetch(
-        `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json?fields=product_name,product_name_vi,brands,quantity`,
+        `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json?fields=product_name,product_name_vi,product_name_en,brands,quantity,product_quantity,product_quantity_unit,categories_tags,image_front_url`,
         { signal: controller.signal },
       );
+      if (response.status === 404)
+        throw new Error('Chưa có sản phẩm này. Bạn có thể nhập tên thủ công.');
       if (!response.ok) throw new Error('Không kết nối được cơ sở dữ liệu sản phẩm.');
       const result = await response.json();
       if (request.current !== controller) return;
-      const name = result.product?.product_name_vi || result.product?.product_name;
-      if (result.status !== 1 || !name)
-        throw new Error('Chưa có sản phẩm này. Bạn có thể nhập tên thủ công.');
-      setProduct({
-        name: String(name).slice(0, 100),
-        brand: result.product.brands,
-        quantity: result.product.quantity,
-      });
+      const product = result.status === 1 ? readBarcodeProduct(result.product, barcode) : null;
+      if (!product) throw new Error('Chưa có sản phẩm này. Bạn có thể nhập tên thủ công.');
+      useProduct(product);
     } catch (err) {
       if (request.current === controller)
         setError(
@@ -71,7 +72,6 @@ export default function BarcodeScreen({ navigation }) {
     request.current = null;
     scanning.current = false;
     setLoading(false);
-    setProduct(null);
     setError('');
   };
   return (
@@ -82,7 +82,7 @@ export default function BarcodeScreen({ navigation }) {
         onBack={() => navigation.goBack()}
       />
       <ScrollView contentContainerStyle={ui.content} keyboardShouldPersistTaps="handled">
-        {permission?.granted && focused && !product ? (
+        {permission?.granted && focused ? (
           <View style={{ height: 260, borderRadius: 20, overflow: 'hidden' }}>
             <CameraView
               style={{ flex: 1 }}
@@ -144,27 +144,15 @@ export default function BarcodeScreen({ navigation }) {
             {error}
           </Text>
         )}
-        {product && (
-          <View style={ui.card}>
-            <Text style={ui.heading}>{product.name}</Text>
-            <Text style={ui.muted}>
-              {[product.brand, product.quantity].filter(Boolean).join(' · ')}
-            </Text>
-            <Button
-              title="Dùng tên này để thêm thực phẩm"
-              onPress={() => navigation.replace('AddFood', { initialName: product.name })}
-            />
-          </View>
-        )}
-        {(product || error) && <Button secondary title="Quét mã khác" onPress={reset} />}
+        {error && <Button secondary title="Quét mã khác" onPress={reset} />}
         <Text style={ui.muted}>
           Nguồn: Open Food Facts (ODbL). Thông tin cộng đồng có thể chưa đầy đủ. Mã vạch không cho
           biết hạn dùng của lô hàng; bạn cần kiểm tra và nhập hạn trên bao bì.
         </Text>
         <Button
           secondary
-          title="Thêm thực phẩm thủ công"
-          onPress={() => navigation.replace('AddFood')}
+          title={formKey ? 'Quay lại nhập thủ công' : 'Thêm thực phẩm thủ công'}
+          onPress={() => (formKey ? navigation.goBack() : navigation.replace('AddFood'))}
         />
       </ScrollView>
     </SafeAreaView>
