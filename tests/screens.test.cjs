@@ -169,3 +169,94 @@ test('use-food form rejects quantities over stock before writing', async () => {
   assert.match(JSON.stringify(tree.toJSON()), /vượt quá/);
   await act(async () => tree.unmount());
 });
+
+test('use-food form requires review when another device updated the stock', async () => {
+  const f = fixture();
+  const Screen = f.load('src/screens/fridge/UseFoodScreen').default;
+  const createScreen = () =>
+    React.createElement(Screen, {
+      navigation: f.navigation,
+      route: { params: { foodId: 'egg' } },
+    });
+  let tree;
+  await act(async () => {
+    tree = create(createScreen());
+  });
+  await act(async () => tree.root.findByType('TextInput').props.onChangeText('1'));
+  f.vm.foods = f.vm.foods.map((food) =>
+    food.id === 'egg' ? { ...food, updatedAt: 'new-version' } : food,
+  );
+  await act(async () => tree.update(createScreen()));
+  assert.equal(button(tree, 'Xác nhận cập nhật').props.disabled, true);
+  await act(async () => button(tree, 'Xác nhận cập nhật').props.onPress());
+  assert.equal(f.mutations.length, 0);
+  await act(async () => button(tree, 'Dùng số lượng mới').props.onPress());
+  assert.equal(tree.root.findByType('TextInput').props.value, '');
+  await act(async () => tree.root.findByType('TextInput').props.onChangeText('1'));
+  await act(async () => button(tree, 'Xác nhận cập nhật').props.onPress());
+  assert.equal(f.mutations[0][1].entries[0].expectedUpdatedAt, 'new-version');
+  await act(async () => button(tree, 'Về tủ lạnh').props.onPress());
+  assert.deepEqual(f.navigationCalls.at(-1), ['MainTabs', { screen: 'Tủ lạnh' }]);
+  await act(async () => tree.unmount());
+});
+
+test('food preferences screen saves the three groups and returns to profile', async () => {
+  const saved = [];
+  let wentBack = false;
+  const hostNames = [
+    'View',
+    'Text',
+    'TextInput',
+    'Pressable',
+    'ScrollView',
+    'KeyboardAvoidingView',
+    'ActivityIndicator',
+  ];
+  const Screen = makeLoader({
+    'react-native': {
+      ...Object.fromEntries(hostNames.map((name) => [name, name])),
+      StyleSheet: { create: (styles) => styles },
+      Platform: { OS: 'android' },
+    },
+    '@expo/vector-icons': { Ionicons: 'Ionicons' },
+    'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' },
+    'src/viewmodels/ProfileProvider': {
+      useProfile: () => ({
+        profile: {},
+        saveFoodPreferences: async (...args) => {
+          saved.push(args);
+        },
+      }),
+    },
+  })('src/screens/profile/FoodPreferencesScreen').default;
+  const navigation = {
+    addListener: () => () => {},
+    goBack: () => {
+      wentBack = true;
+    },
+  };
+  let tree;
+  await act(async () => {
+    tree = create(React.createElement(Screen, { navigation }));
+  });
+  assert.equal(button(tree, 'Lưu sở thích').props.disabled, true);
+  for (const [label, value] of [
+    ['Yêu thích', 'Thích vị cay'],
+    ['Hạn chế', 'Giảm ngọt'],
+    ['Ghét', 'Không ăn cá'],
+  ]) {
+    const input = tree.root
+      .findAllByType('TextInput')
+      .find((field) => field.props.accessibilityLabel === label);
+    await act(async () => input.props.onChangeText(value));
+  }
+  await act(async () => button(tree, 'Lưu sở thích').props.onPress());
+  assert.deepEqual(saved, [
+    [
+      { food_likes: 'Thích vị cay', food_limits: 'Giảm ngọt', food_dislikes: 'Không ăn cá' },
+      { food_likes: '', food_limits: '', food_dislikes: '' },
+    ],
+  ]);
+  assert.equal(wentBack, true);
+  await act(async () => tree.unmount());
+});

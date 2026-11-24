@@ -17,6 +17,7 @@ test('PostgreSQL: inventory transactions, RLS, retries and AI quota', async (t) 
       '202611130001_fridgechef.sql',
       '202611160001_complete_workflows.sql',
       '202611170001_cloud_profiles_recipes.sql',
+      '20261124124031_food_preferences.sql',
     ])
       await db.exec(fs.readFileSync('supabase/migrations/' + file, 'utf8'));
     await db.exec(fs.readFileSync('supabase/schema/ai_conversations.sql', 'utf8'));
@@ -169,6 +170,44 @@ test('PostgreSQL: inventory transactions, RLS, retries and AI quota', async (t) 
       assert.equal((await db.query('select * from profiles')).rows[0].display_name, '');
       await db.exec(`set app.user_id='${userA}';`);
     });
+    await t.test(
+      'food preferences default empty and only the profile owner can read and update them',
+      async () => {
+        const fields = 'food_likes,food_limits,food_dislikes';
+        const initial = (await db.query('select ' + fields + ' from profiles')).rows[0];
+        assert.deepEqual(initial, { food_likes: '', food_limits: '', food_dislikes: '' });
+        await db.query(
+          "update profiles set food_likes='Thích cay',food_limits='Giảm ngọt',food_dislikes='Cá'",
+        );
+        assert.equal(
+          (await db.query('select food_likes from profiles')).rows[0].food_likes,
+          'Thích cay',
+        );
+        await assert.rejects(
+          db.query("update profiles set food_likes=repeat('x', 501)"),
+          /check constraint/,
+        );
+        await db.exec("set app.user_id='" + userB + "';");
+        assert.equal(
+          (await db.query('select food_likes from profiles where user_id=$1', [userA])).rows.length,
+          0,
+        );
+        assert.equal(
+          (
+            await db.query(
+              "update profiles set food_likes='fake' where user_id=$1 returning user_id",
+              [userA],
+            )
+          ).rows.length,
+          0,
+        );
+        await db.exec("set app.user_id='" + userA + "';");
+        assert.equal(
+          (await db.query('select food_likes from profiles')).rows[0].food_likes,
+          'Thích cay',
+        );
+      },
+    );
     await t.test(
       'catalog is server-managed and favorites remain private across accounts',
       async () => {

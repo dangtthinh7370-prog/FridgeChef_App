@@ -28,7 +28,8 @@ export function Button({ title, onPress, busy, disabled, secondary, danger }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ disabled: !!(disabled || busy) }}
+      accessibilityLabel={title}
+      accessibilityState={{ disabled: !!(disabled || busy), busy: !!busy }}
       disabled={disabled || busy}
       onPress={onPress}
       style={[
@@ -44,6 +45,24 @@ export function Button({ title, onPress, busy, disabled, secondary, danger }) {
         <Text style={[ui.buttonText, secondary && { color: COLORS.primary }]}>{title}</Text>
       )}
     </Pressable>
+  );
+}
+export function DataState({ ready, error, onRetry }) {
+  if (error)
+    return (
+      <View style={ui.card}>
+        <Text accessibilityRole="alert" style={ui.error}>
+          {ready ? 'Dữ liệu có thể chưa cập nhật.' : 'Chưa tải được dữ liệu.'}
+        </Text>
+        {!!onRetry && <Button secondary title="Thử tải lại" onPress={onRetry} />}
+      </View>
+    );
+  if (ready) return null;
+  return (
+    <View accessibilityLiveRegion="polite" style={[ui.card, ui.row]}>
+      <ActivityIndicator color={COLORS.primary} />
+      <Text style={ui.body}>Đang tải dữ liệu…</Text>
+    </View>
   );
 }
 export function Empty({ icon = 'leaf-outline', title, detail }) {

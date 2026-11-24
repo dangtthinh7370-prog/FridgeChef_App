@@ -15,18 +15,26 @@ export default function UseFoodScreen({ route, navigation }) {
   const [done, setDone] = useState(false);
   const operation = useRef(Crypto.randomUUID());
   // Keep the version shown when this form opened; a server conflict must be reviewed.
-  const initial = useRef(food);
+  const [initial, setInitial] = useState(food);
+  const changed = !!(initial && food && initial.updatedAt !== food.updatedAt);
+  const reviewLatest = () => {
+    setInitial(food);
+    setQuantity('');
+    setReason(food.status === 'expired' ? 'discarded' : reason);
+    setError('');
+    operation.current = Crypto.randomUUID();
+  };
   const save = async () => {
+    if (!initial || !food || changed || busy || offline) return;
     try {
       const amount = validateQuantity(quantity);
-      if (amount > initial.current.quantity)
-        throw new Error('Lượng dùng vượt quá số lượng hiện có.');
+      if (amount > initial.quantity) throw new Error('Lượng dùng vượt quá số lượng hiện có.');
       await mutate('consumeFood', {
         entries: [
           {
-            foodId: initial.current.id,
+            foodId: initial.id,
             quantity: amount,
-            expectedUpdatedAt: initial.current.updatedAt,
+            expectedUpdatedAt: initial.updatedAt,
           },
         ],
         reason,
@@ -43,7 +51,10 @@ export default function UseFoodScreen({ route, navigation }) {
         <PageHeader title="Đã cập nhật tủ lạnh" />
         <View style={ui.content}>
           <Text style={ui.body}>Thao tác đã được ghi vào lịch sử.</Text>
-          <Button title="Về tủ lạnh" onPress={() => navigation.popToTop()} />
+          <Button
+            title="Về tủ lạnh"
+            onPress={() => navigation.navigate('MainTabs', { screen: 'Tủ lạnh' })}
+          />
         </View>
       </SafeAreaView>
     );
@@ -60,6 +71,14 @@ export default function UseFoodScreen({ route, navigation }) {
               <Text style={ui.body}>Còn {food.quantityText}</Text>
               <Text style={ui.muted}>{food.daysLeft}</Text>
             </View>
+            {changed && (
+              <View style={ui.card}>
+                <Text accessibilityRole="alert" style={ui.error}>
+                  Số lượng trong tủ đã thay đổi. Kiểm tra lại trước khi xác nhận.
+                </Text>
+                <Button secondary title="Dùng số lượng mới" onPress={reviewLatest} />
+              </View>
+            )}
             <View style={ui.row}>
               <View style={{ flex: 1 }}>
                 <Button
@@ -90,8 +109,12 @@ export default function UseFoodScreen({ route, navigation }) {
               accessibilityLabel="Số lượng đã dùng hoặc bỏ đi"
               style={ui.input}
               keyboardType="decimal-pad"
+              editable={!busy}
               value={quantity}
-              onChangeText={setQuantity}
+              onChangeText={(value) => {
+                setQuantity(value);
+                setError('');
+              }}
               placeholder="Nhập số lượng"
             />
             <Button
@@ -112,7 +135,7 @@ export default function UseFoodScreen({ route, navigation }) {
             <Button
               title="Xác nhận cập nhật"
               busy={busy}
-              disabled={offline || (food.status === 'expired' && reason !== 'discarded')}
+              disabled={offline || changed || (food.status === 'expired' && reason !== 'discarded')}
               onPress={save}
             />
           </>

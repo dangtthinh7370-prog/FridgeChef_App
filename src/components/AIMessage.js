@@ -3,12 +3,20 @@ import { View, Text } from 'react-native';
 
 // Render the small Markdown subset used by Gemini without HTML or embedded links.
 export default function AIMessage({ text }) {
+  const lines = String(text || '')
+    .replace(/\r\n?/g, '\n')
+    .trim()
+    .split('\n')
+    .filter((line) => !/^\s*\x60{3}[a-z]*\s*$/i.test(line));
   return (
     <View style={{ gap: 6 }}>
-      {text.split('\n').map((line, index) => {
+      {lines.map((line, index) => {
         if (!line.trim()) return <View key={index} style={{ height: 5 }} />;
-        const heading = /^#{1,6}\s+/.test(line);
-        const content = line.replace(/^#{1,6}\s+/, '').replace(/^\s*[-*]\s+/, '• ');
+        const heading = /^\s*#{1,6}\s+/.test(line);
+        const content = line
+          .replace(/^\s*#{1,6}\s+/, '')
+          .replace(/^\s*[-*+]\s+/, '• ')
+          .replace(/\[([^\]]+)\]\(https?:\/\/[^)]+\)/g, '$1');
         return (
           <Text
             selectable

@@ -4,22 +4,30 @@
     "slug": "fridgechef",
     "version": "1.2.0",
     "scheme": "fridgechef",
+    "icon": "./src/assets/app-icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
+      "image": "./src/assets/adaptive-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#F7FAF6"
+      "backgroundColor": "#193E30"
     },
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "package": "com.fridgechef.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./src/assets/adaptive-icon.png",
+        "backgroundColor": "#193E30"
+      },
       "permissions": ["CAMERA", "POST_NOTIFICATIONS"],
       "blockedPermissions": ["android.permission.RECORD_AUDIO"]
     },
-    "web": {},
+    "web": {
+      "favicon": "./src/assets/app-icon.png"
+    },
     "plugins": [
       "expo-asset",
       [

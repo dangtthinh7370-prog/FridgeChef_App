@@ -9,6 +9,7 @@ import {
   Platform,
   Switch,
   Alert,
+  Linking,
   ActivityIndicator,
   StyleSheet,
 } from 'react-native';
@@ -19,8 +20,8 @@ import { Button, PageHeader, ui } from '../../components/AppUI';
 import { supabase } from '../../services/supabase';
 import { generateRecipes } from '../../services/recipeService';
 import { useAuth } from '../../viewmodels/AuthProvider';
-import { useRecipes } from '../../viewmodels/RecipeProvider';
 import AIMessage from '../../components/AIMessage';
+import CookingGuide, { CookingProposal, readCookingReply } from '../../components/CookingGuide';
 
 const starters = [
   'Tối nay ăn gì đơn giản?',
@@ -29,19 +30,17 @@ const starters = [
 ];
 export default function AIChatScreen({ navigation, route }) {
   const { user } = useAuth();
-  const { reload } = useRecipes();
   const [messages, setMessages] = useState([]),
-    [draft, setDraft] = useState('');
-  const [useInventory, setUseInventory] = useState(false),
+    [draft, setDraft] = useState(() => route?.params?.initialDraft || '');
+  const [useInventory, setUseInventory] = useState(route?.params?.initialUseInventory === true),
     [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true),
     [error, setError] = useState('');
-  const [servings, setServings] = useState(2),
-    [suggestions, setSuggestions] = useState([]);
   const [pending, setPending] = useState(null);
   const scroll = useRef(),
     lock = useRef(false),
     alive = useRef(true);
+  const alignedMessage = useRef(null);
   const recipe = route?.params?.recipe;
   const loadHistory = async () => {
     setLoading(true);
@@ -68,13 +67,14 @@ export default function AIChatScreen({ navigation, route }) {
       alive.current = false;
     };
   }, [user.id]);
-  const send = async (retry) => {
+  const send = async (retry, searchWeb = false) => {
     if (lock.current || loading) return;
     const request = retry || {
       id: Crypto.randomUUID(),
       message: draft.trim(),
       useInventory,
       recipeId: recipe?.id,
+      searchWeb,
     };
     if (!request.message) return;
     lock.current = true;
@@ -88,6 +88,8 @@ export default function AIChatScreen({ navigation, route }) {
         requestId: request.id,
         useInventory: request.useInventory,
         recipeId: request.recipeId,
+        includeMessage: true,
+        ...(request.searchWeb ? { searchWeb: true } : {}),
       });
       if (!alive.current) return;
       setMessages((rows) => [
@@ -103,25 +105,25 @@ export default function AIChatScreen({ navigation, route }) {
       if (alive.current) setBusy(false);
     }
   };
-  const recommend = async () => {
-    if (lock.current || loading) return;
-    lock.current = true;
-    setBusy(true);
-    setError('');
-    try {
-      const found = await generateRecipes({ servings, preference: draft.trim() });
-      if (alive.current) {
-        setSuggestions(found);
-        if (!found.length) setError('Chưa có món phù hợp. Hãy khám phá thêm món hoặc đổi yêu cầu.');
-      }
-      await reload();
-    } catch (e) {
-      if (alive.current) setError(e.message);
-    } finally {
-      lock.current = false;
-      if (alive.current) setBusy(false);
-    }
+  const loadGuide = (proposal) =>
+    generateRecipes({
+      action: 'cook-guide',
+      recipeId: proposal.recipeId,
+      webQuery: proposal.webQuery,
+    });
+  const openRecipe = async (id) => {
+    const result = await supabase
+      .from('recipe_catalog')
+      .select('recipe')
+      .eq('id', id)
+      .maybeSingle();
+    if (result.error || !result.data?.recipe) throw new Error('Recipe unavailable');
+    navigation.navigate('RecipeDetail', { recipe: result.data.recipe });
   };
+  const openWeb = (query) =>
+    Linking.openURL(
+      'https://www.google.com/search?q=' + encodeURIComponent(query + ' công thức cách làm'),
+    ).catch(() => setError('Chưa mở được trình duyệt.'));
   const clear = () =>
     Alert.alert(
       'Xóa hội thoại?',
@@ -140,7 +142,6 @@ export default function AIChatScreen({ navigation, route }) {
               if (r.error) throw r.error;
               setMessages([]);
               setPending(null);
-              setSuggestions([]);
               setError('');
             } catch (e) {
               setError(e.message);
@@ -222,29 +223,52 @@ export default function AIChatScreen({ navigation, route }) {
                 <Ionicons name="arrow-up-outline" size={18} color="#286343" />
               </Pressable>
             ))}
-          {messages.map((m, index) => (
-            <View
-              key={m.id}
-              style={{ gap: 12 }}
-              onLayout={(event) => {
-                if (index === messages.length - 1)
-                  scroll.current?.scrollTo({
-                    y: Math.max(0, event.nativeEvent.layout.y - 12),
-                    animated: true,
-                  });
-              }}
-            >
-              <View style={s.userBubble}>
-                <Text selectable style={{ color: 'white', fontSize: 16, lineHeight: 24 }}>
-                  {m.message}
-                </Text>
+          {messages.map((m, index) => {
+            const answer = readCookingReply(m.reply);
+            return (
+              <View
+                key={m.id}
+                style={{ gap: 12 }}
+                onLayout={(event) => {
+                  if (index === messages.length - 1 && alignedMessage.current !== m.id) {
+                    alignedMessage.current = m.id;
+                    scroll.current?.scrollTo({
+                      y: Math.max(0, event.nativeEvent.layout.y - 12),
+                      animated: true,
+                    });
+                  }
+                }}
+              >
+                <View style={s.userBubble}>
+                  <Text selectable style={{ color: 'white', fontSize: 16, lineHeight: 24 }}>
+                    {m.message}
+                  </Text>
+                </View>
+                <View style={s.aiBubble}>
+                  <Text style={s.aiLabel}>✦ BẾP AI</Text>
+                  <AIMessage text={answer.message} />
+                  {!!answer.proposal && (
+                    <CookingProposal
+                      proposal={answer.proposal}
+                      onGuide={loadGuide}
+                      onOpenRecipe={openRecipe}
+                      onWeb={openWeb}
+                    />
+                  )}
+                  {!!answer.guide && (
+                    <CookingGuide guide={answer.guide} onOpenRecipe={openRecipe} />
+                  )}
+                  {!!answer.webQuery && (
+                    <Button
+                      secondary
+                      title="Mở tìm kiếm Google"
+                      onPress={() => openWeb(answer.webQuery)}
+                    />
+                  )}
+                </View>
               </View>
-              <View style={s.aiBubble}>
-                <Text style={s.aiLabel}>✦ BẾP AI</Text>
-                <AIMessage text={m.reply} />
-              </View>
-            </View>
-          ))}
+            );
+          })}
           {!!pending && (
             <View
               style={s.userBubble}
@@ -276,16 +300,6 @@ export default function AIChatScreen({ navigation, route }) {
               )}
             </View>
           )}
-          {suggestions.map((r) => (
-            <View key={r.id} style={ui.card}>
-              <Text style={ui.heading}>{r.title}</Text>
-              <Text style={ui.body}>{r.reason}</Text>
-              <Button
-                title="Xem công thức & từng bước"
-                onPress={() => navigation.navigate('RecipeDetail', { recipe: r, servings })}
-              />
-            </View>
-          ))}
         </ScrollView>
         <View style={s.composer}>
           <View style={[ui.row, { justifyContent: 'space-between' }]}>
@@ -337,39 +351,14 @@ export default function AIChatScreen({ navigation, route }) {
               <Text style={ui.muted}>Chỉnh sửa câu hỏi</Text>
             </Pressable>
           )}
-          {useInventory && (
-            <View style={ui.row}>
-              <Pressable
-                accessibilityLabel="Giảm số người"
-                style={ui.iconButton}
-                disabled={busy}
-                onPress={() => setServings((n) => Math.max(1, n - 1))}
-              >
-                <Ionicons name="remove-circle-outline" size={24} color="#286343" />
-              </Pressable>
-              <Text style={ui.body}>{servings} người</Text>
-              <Pressable
-                accessibilityLabel="Tăng số người"
-                style={ui.iconButton}
-                disabled={busy}
-                onPress={() => setServings((n) => Math.min(20, n + 1))}
-              >
-                <Ionicons name="add-circle-outline" size={24} color="#286343" />
-              </Pressable>
-              <View style={{ flex: 1 }}>
-                <Button
-                  secondary
-                  title="Chọn món từ tủ lạnh"
-                  disabled={busy || loading || !!pending}
-                  onPress={recommend}
-                />
-              </View>
-            </View>
+          {!!draft.trim() && (
+            <Button
+              secondary
+              title="AI tìm công thức trên Google"
+              disabled={busy || !!pending}
+              onPress={() => send(undefined, true)}
+            />
           )}
-          <Text style={{ fontSize: 11, color: '#788172', lineHeight: 16 }}>
-            10 lượt/giờ. Gemini có thể nhầm. Hội thoại được lưu trên Supabase; hãy đối chiếu công
-            thức nguồn.
-          </Text>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
