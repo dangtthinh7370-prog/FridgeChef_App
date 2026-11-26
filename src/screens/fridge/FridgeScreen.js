@@ -41,7 +41,8 @@ export default function FridgeScreen({ navigation }) {
   }, [foods, area, status, search]);
 
   const refresh = () => reload().catch(() => {});
-  const add = () => navigation.navigate('AddFood');
+  const add = () =>
+    navigation.navigate('AddFood', area !== 'all' ? { initialStorageAreaId: area } : {});
   const chip = (item, value, select) => (
     <Pressable
       key={item.id}
@@ -200,16 +201,7 @@ export default function FridgeScreen({ navigation }) {
         }}
       />
       <View style={ui.footer}>
-<<<<<<< HEAD
-        <Button
-          title="+ Thêm thực phẩm"
-          onPress={() =>
-            navigation.navigate('AddFood', area !== 'all' ? { initialStorageAreaId: area } : {})
-          }
-        />
-=======
         <Button title="+ Thêm thực phẩm" disabled={!ready || offline} onPress={add} />
->>>>>>> d307c8a81165d6b9cd935dff34bd477219120dba
       </View>
     </SafeAreaView>
   );

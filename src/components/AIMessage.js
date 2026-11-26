@@ -3,7 +3,6 @@ import { View, Text } from 'react-native';
 
 // Render the small Markdown subset used by Gemini without HTML or embedded links.
 export default function AIMessage({ text }) {
-<<<<<<< HEAD
   // Guard against non-string values (e.g. a plain object returned unexpectedly)
   const safeText =
     typeof text === 'string'
@@ -11,11 +10,7 @@ export default function AIMessage({ text }) {
       : typeof text === 'object' && text !== null
         ? JSON.stringify(text, null, 2)
         : String(text ?? '');
-  return (
-    <View style={{ gap: 6 }}>
-      {safeText.split('\n').map((line, index) => {
-=======
-  const lines = String(text || '')
+  const lines = safeText
     .replace(/\r\n?/g, '\n')
     .trim()
     .split('\n')
@@ -23,7 +18,6 @@ export default function AIMessage({ text }) {
   return (
     <View style={{ gap: 6 }}>
       {lines.map((line, index) => {
->>>>>>> d307c8a81165d6b9cd935dff34bd477219120dba
         if (!line.trim()) return <View key={index} style={{ height: 5 }} />;
         const heading = /^\s*#{1,6}\s+/.test(line);
         const content = line
