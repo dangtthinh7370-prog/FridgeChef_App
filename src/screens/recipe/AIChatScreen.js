@@ -76,7 +76,6 @@ export default function AIChatScreen({ navigation, route }) {
   }, [user.id]);
   const send = async (retry, searchWeb = false) => {
     if (lock.current || loading) return;
-<<<<<<< HEAD
     const request =
       retry ||
       (() => {
@@ -97,16 +96,6 @@ export default function AIChatScreen({ navigation, route }) {
         };
       })();
     if (!request?.message) return;
-=======
-    const request = retry || {
-      id: Crypto.randomUUID(),
-      message: draft.trim(),
-      useInventory,
-      recipeId: recipe?.id,
-      searchWeb,
-    };
-    if (!request.message) return;
->>>>>>> d307c8a81165d6b9cd935dff34bd477219120dba
     lock.current = true;
     setBusy(true);
     setError('');
@@ -253,24 +242,6 @@ export default function AIChatScreen({ navigation, route }) {
                 <Ionicons name="arrow-up-outline" size={18} color="#286343" />
               </Pressable>
             ))}
-<<<<<<< HEAD
-          {messages.map((m, index) => (
-            <View
-              key={m.id}
-              style={{ gap: 12 }}
-              onLayout={(event) => {
-                if (index === messages.length - 1)
-                  scroll.current?.scrollTo({
-                    y: Math.max(0, event.nativeEvent.layout.y - 12),
-                    animated: true,
-                  });
-              }}
-            >
-              <View style={s.userBubble}>
-                <Text selectable style={{ color: 'white', fontSize: 16, lineHeight: 24 }}>
-                  {extractDisplayMessage(m.message)}
-                </Text>
-=======
           {messages.map((m, index) => {
             const answer = readCookingReply(m.reply);
             return (
@@ -314,7 +285,6 @@ export default function AIChatScreen({ navigation, route }) {
                     />
                   )}
                 </View>
->>>>>>> d307c8a81165d6b9cd935dff34bd477219120dba
               </View>
             );
           })}
