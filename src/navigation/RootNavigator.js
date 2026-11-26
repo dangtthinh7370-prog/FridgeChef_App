@@ -11,6 +11,7 @@ import BarcodeScreen from '../screens/fridge/BarcodeScreen';
 import ExpiryAlertScreen from '../screens/home/ExpiryAlertScreen';
 import AIChefScreen from '../screens/recipe/AIChefScreen';
 import AIChatScreen from '../screens/recipe/AIChatScreen';
+import FridgeSuggestionsScreen from '../screens/recipe/FridgeSuggestionsScreen';
 import RecipeDetailScreen from '../screens/recipe/RecipeDetailScreen';
 import CookingModeScreen from '../screens/recipe/CookingModeScreen';
 import { useAuth } from '../viewmodels/AuthProvider';
@@ -20,6 +21,7 @@ import UseFoodScreen from '../screens/fridge/UseFoodScreen';
 import ActivityScreen from '../screens/profile/ActivityScreen';
 import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
 import { ProfileProvider } from '../viewmodels/ProfileProvider';
+import FoodPreferencesScreen from '../screens/profile/FoodPreferencesScreen';
 import EditProfileScreen from '../screens/profile/EditProfileScreen';
 import ChangePasswordScreen from '../screens/profile/ChangePasswordScreen';
 import ChangeEmailScreen from '../screens/profile/ChangeEmailScreen';
@@ -53,7 +55,6 @@ function AuthenticatedNavigator() {
       >
         {/* Màn hình Đăng nhập (01) */}
 
-        {/* 4 Tabs Chính: Trang chủ, Tủ lạnh, Đi chợ, Tài khoản */}
         <Stack.Screen name="MainTabs" component={TabNavigator} />
 
         {/* Các màn hình tính năng con (Sub-screens) */}
@@ -63,10 +64,12 @@ function AuthenticatedNavigator() {
         <Stack.Screen name="ExpiryAlert" component={ExpiryAlertScreen} />
         <Stack.Screen name="AIChef" component={AIChefScreen} />
         <Stack.Screen name="AIChat" component={AIChatScreen} />
+        <Stack.Screen name="FridgeSuggestions" component={FridgeSuggestionsScreen} />
         <Stack.Screen name="RecipeDetail" component={RecipeDetailScreen} />
         <Stack.Screen name="CookingMode" component={CookingModeScreen} />
         <Stack.Screen name="UseFood" component={UseFoodScreen} />
         <Stack.Screen name="Activity" component={ActivityScreen} />
+        <Stack.Screen name="FoodPreferences" component={FoodPreferencesScreen} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} />
         <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
         <Stack.Screen name="ChangeEmail" component={ChangeEmailScreen} />

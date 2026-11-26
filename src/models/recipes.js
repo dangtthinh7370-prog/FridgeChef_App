@@ -8,6 +8,38 @@ export const normalizeName = (value) =>
     .replace(/đ/g, 'd')
     .trim()
     .replace(/\s+/g, ' ');
+// Only map names with the same meaning. Preparation, cuts and package sizes stay explicit.
+const ingredientAliases = new Map(
+  [
+    ['tỏi', 'garlic'],
+    ['hành tây', 'onion', 'onions'],
+    ['cà chua', 'tomato', 'tomatoes'],
+    ['khoai tây', 'potato', 'potatoes'],
+    ['cà rốt', 'carrot', 'carrots'],
+    ['dưa leo', 'dưa chuột', 'cucumber'],
+    ['bông cải xanh', 'súp lơ xanh', 'broccoli'],
+    ['bắp cải', 'cabbage'],
+    ['rau bina', 'rau chân vịt', 'spinach'],
+    ['nấm nút', 'nấm mỡ', 'button mushrooms'],
+    ['ức gà', 'chicken breast', 'chicken breasts'],
+    ['đùi gà', 'chicken thigh', 'chicken thighs'],
+    ['thịt bò xay', 'ground beef', 'minced beef'],
+    ['trứng gà', 'egg', 'eggs'],
+    ['bơ lạt', 'bơ nhạt', 'unsalted butter'],
+    ['dầu ô liu', 'olive oil'],
+    ['muối', 'salt'],
+    ['tiêu đen', 'black pepper'],
+    ['nước mắm', 'fish sauce'],
+  ].flatMap(([name, ...aliases]) =>
+    [name, ...aliases].map((alias) => [normalizeName(alias), normalizeName(name)]),
+  ),
+);
+
+const ingredientKey = (name) => {
+  const key = normalizeName(name);
+  return ingredientAliases.get(key) || key;
+};
+
 const units = {
   g: ['mass', 1],
   kg: ['mass', 1000],
@@ -57,7 +89,16 @@ export function validateRecipe(raw) {
       ...(typeof i.measure === 'string' ? { measure: i.measure.slice(0, 200) } : {}),
     };
   });
-  const steps = raw.steps.map((s) => {
+  const instructions = sourced
+    ? raw.steps.filter(
+        (step) =>
+          !(
+            step?.seconds === 0 &&
+            /^(?:step|bước)\s+\d+\s*[.:)-]?$/iu.test(String(step.desc).trim())
+          ),
+      )
+    : raw.steps;
+  const steps = (instructions.length ? instructions : raw.steps).map((s, index) => {
     if (
       !s ||
       !text(s.title, 120) ||
@@ -67,7 +108,11 @@ export function validateRecipe(raw) {
       s.seconds > 86400
     )
       throw new Error('Bước nấu không hợp lệ.');
-    return { title: s.title.trim(), desc: s.desc.trim(), seconds: s.seconds };
+    return {
+      title: sourced && /^Bước \d+$/.test(s.title.trim()) ? 'Bước ' + (index + 1) : s.title.trim(),
+      desc: s.desc.trim(),
+      seconds: s.seconds,
+    };
   });
   if (
     !(
@@ -121,12 +166,12 @@ export function planRecipe(recipe, foods, servings = recipe.servings || 2, now =
         ...i,
         missing: null,
         available: false,
-        hasStock: available.some((f) => normalizeName(f.name) === normalizeName(i.name)),
+        hasStock: available.some((f) => ingredientKey(f.name) === ingredientKey(i.name)),
       };
     const required = Math.round(i.quantity * factor * 1000000) / 1000000;
     let need = required;
     for (const food of available) {
-      if (normalizeName(food.name) !== normalizeName(i.name)) continue;
+      if (ingredientKey(food.name) !== ingredientKey(i.name)) continue;
       const stock = convertQuantity(remaining.get(food.id), food.unit, i.unit);
       if (stock == null || stock <= 0 || need <= 0.000001) continue;
       const used = Math.min(need, stock);
@@ -168,7 +213,7 @@ export function planShopping(ingredients, shopping) {
   for (const ingredient of ingredients.filter((i) => i.missing > 0)) {
     const group = groups.find(
       (g) =>
-        normalizeName(g.name) === normalizeName(ingredient.name) &&
+        ingredientKey(g.name) === ingredientKey(ingredient.name) &&
         convertQuantity(ingredient.missing, ingredient.unit, g.unit) != null,
     );
     if (group) group.quantity += convertQuantity(ingredient.missing, ingredient.unit, group.unit);
@@ -180,7 +225,7 @@ export function planShopping(ingredients, shopping) {
     .map((g) => {
       let need = g.quantity;
       for (const item of remaining) {
-        if (normalizeName(item.name) !== normalizeName(g.name)) continue;
+        if (ingredientKey(item.name) !== ingredientKey(g.name)) continue;
         const available = convertQuantity(item.quantity, item.unit, g.unit);
         if (available == null || available <= 0 || need <= 0) continue;
         const used = Math.min(need, available);

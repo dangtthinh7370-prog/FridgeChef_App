@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
+  Image,
   Text,
   StyleSheet,
   TextInput,
@@ -46,6 +47,17 @@ export default function AddFoodScreen({ navigation, route }) {
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [success, setSuccess] = useState('');
   const category = FOOD_CATEGORIES.find((item) => item.id === form.category);
+  const scannedProduct = route.params?.scannedProduct;
+  const [product, setProduct] = useState(null);
+
+  useEffect(() => {
+    if (!scannedProduct) return;
+    vm.fillFromBarcode(scannedProduct);
+    setProduct(scannedProduct);
+    setSuccess('');
+    scroll.current?.scrollTo({ y: 0, animated: true });
+    navigation.setParams({ scannedProduct: undefined });
+  }, [scannedProduct, navigation]);
 
   useEffect(() => {
     const show = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
@@ -96,6 +108,7 @@ export default function AddFoodScreen({ navigation, route }) {
     if (Platform.OS === 'android') ToastAndroid.show(message, ToastAndroid.SHORT);
     if (keepAdding) {
       setSuccess(message);
+      setProduct(null);
       setExtraVisible(false);
       scroll.current?.scrollTo({ y: 0, animated: true });
     } else {
@@ -134,7 +147,32 @@ export default function AddFoodScreen({ navigation, route }) {
           keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.intro}>Cất thêm đồ ngon, nhớ dùng đúng lúc.</Text>
+          {!!product && (
+            <View style={styles.scanNotice}>
+              {product.image ? (
+                <Image
+                  source={{ uri: product.image }}
+                  style={{ width: 48, height: 48, borderRadius: 8 }}
+                  onError={() => setProduct((value) => (value ? { ...value, image: null } : value))}
+                />
+              ) : (
+                <Ionicons name="barcode-outline" size={23} color={COLORS.primary} />
+              )}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.scanText}>Đã điền dữ liệu theo mã vạch</Text>
+                {!!(product.brand || product.packageLabel) && (
+                  <Text style={styles.helper}>
+                    {[product.brand, product.packageLabel].filter(Boolean).join(' · ')}
+                  </Text>
+                )}
+                <Text style={styles.helper}>
+                  {form.expDate
+                    ? 'Kiểm tra hạn dùng đúng với lô bạn vừa quét.'
+                    : 'Chọn hạn dùng ghi trên bao bì để lưu.'}
+                </Text>
+              </View>
+            </View>
+          )}
           {!!success && (
             <View style={styles.success} accessibilityLiveRegion="polite">
               <Ionicons name="checkmark-circle" size={21} color={COLORS.primary} />
@@ -185,7 +223,6 @@ export default function AddFoodScreen({ navigation, route }) {
             <FieldError message={errors.name} />
             {!vm.editing && (
               <View style={styles.suggestions}>
-                <Text style={styles.helper}>Chạm để điền nhanh</Text>
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
@@ -207,7 +244,7 @@ export default function AddFoodScreen({ navigation, route }) {
                 </ScrollView>
               </View>
             )}
-            <View style={{ marginTop: 18 }}>
+            <View style={{ marginTop: 12 }}>
               <QuantityControl
                 value={form.quantity}
                 unit={form.unit}
@@ -312,7 +349,7 @@ export default function AddFoodScreen({ navigation, route }) {
           </View>
           <Pressable
             accessibilityRole="button"
-            onPress={() => navigation.navigate('BarcodeScanner')}
+            onPress={() => navigation.navigate('BarcodeScanner', { formKey: route.key })}
             style={styles.scanNotice}
           >
             <Ionicons name="barcode-outline" size={20} color={COLORS.primary} />
@@ -369,7 +406,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 10,
-    paddingBottom: 12,
+    paddingBottom: 8,
     gap: 10,
   },
   backButton: {
@@ -399,22 +436,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   content: { paddingHorizontal: 16, paddingBottom: 20 },
-  intro: {
-    color: COLORS.muted,
-    fontSize: 13,
-    lineHeight: 20,
-    marginBottom: 18,
-    paddingHorizontal: 2,
-  },
   card: {
     borderWidth: 1,
     borderColor: '#E3EBDF',
     borderRadius: 20,
     backgroundColor: '#FFFFFF',
-    padding: 16,
+    padding: 13,
     marginBottom: 14,
   },
-  sectionHeading: { flexDirection: 'row', alignItems: 'center', gap: 9, marginBottom: 18 },
+  sectionHeading: { flexDirection: 'row', alignItems: 'center', gap: 9, marginBottom: 12 },
   sectionIcon: {
     width: 30,
     height: 30,

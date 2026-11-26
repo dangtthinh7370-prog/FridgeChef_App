@@ -10,10 +10,10 @@ export default function FreshnessBadge({ status, text }) {
 
   if (status === 'soon') {
     bg = COLORS.badgeSoonBg;
-    color = COLORS.expirySoon;
+    color = '#81500B';
   } else if (status === 'expired') {
     bg = COLORS.badgeExpiredBg;
-    color = COLORS.expired;
+    color = '#9F3B32';
   }
 
   return (

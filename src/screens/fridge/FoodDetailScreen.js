@@ -1,198 +1,153 @@
-// src/screens/fridge/FoodDetailScreen.js
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SIZES } from '../../constants/theme';
+import { Button, DataState, Empty, PageHeader, ui } from '../../components/AppUI';
 import FreshnessBadge from '../../components/FreshnessBadge';
-import { useFridgeViewModel } from '../../viewmodels/FridgeProvider';
+import { COLORS } from '../../constants/theme';
 import { FOOD_CATEGORIES } from '../../models/food';
+import { useFridgeViewModel } from '../../viewmodels/FridgeProvider';
 
 export default function FoodDetailScreen({ navigation, route }) {
-  const { foods, mutate, busy } = useFridgeViewModel();
+  const { foods, mutate, busy, offline, ready, error, reload } = useFridgeViewModel();
   const id = route.params?.foodId ?? route.params?.food?.id;
   const food = foods.find((item) => String(item.id) === String(id));
-  const handleDelete = () => {
-    Alert.alert('Xác nhận', 'Bạn có chắc muốn xóa "' + food.name + '" khỏi tủ lạnh?', [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Xóa',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await mutate('deleteFood', food.id);
-            navigation.goBack();
-          } catch (error) {
-            Alert.alert('Không xóa được', error.message);
-          }
+  const category = FOOD_CATEGORIES.find((item) => item.id === food?.category);
+  const disabled = busy || offline;
+  const goBack = () => navigation.goBack();
+
+  const deleteFood = () =>
+    Alert.alert(
+      'Xóa thực phẩm?',
+      `Xóa “${food.name}” khỏi tủ lạnh. Nếu bạn đã dùng hoặc bỏ đi, hãy ghi nhận để lưu vào nhật ký.`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await mutate('deleteFood', food.id);
+              goBack();
+            } catch (failure) {
+              Alert.alert('Không xóa được', failure.message);
+            }
+          },
         },
-      },
-    ]);
-  };
-  if (!food)
-    return (
-      <SafeAreaView style={styles.container}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.text} />
-        </TouchableOpacity>
-        <Text style={styles.subtitle}>Thực phẩm không còn tồn tại. Hãy quay lại tủ lạnh.</Text>
-      </SafeAreaView>
+      ],
     );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 12 }}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={COLORS.text} />
-          </TouchableOpacity>
-          <View style={{ flex: 1, marginLeft: 8 }}>
-            <Text style={styles.title}>Chi tiết thực phẩm</Text>
-            <Text style={styles.subtitle}>Theo dõi và chỉnh sửa thực phẩm</Text>
-          </View>
-        </View>
-
-        {/* Main Card */}
-        <View style={styles.cardHeader}>
-          <View style={styles.avatarLarge}>
-            <Text style={styles.avatarLargeText}>{food.code || 'CT'}</Text>
-          </View>
-          <Text style={styles.foodName}>{food.name}</Text>
-          <View style={{ marginTop: 8 }}>
-            <FreshnessBadge
-              status={food.status || 'soon'}
-              text={
-                food.status === 'valid'
-                  ? 'CÒN HẠN'
-                  : food.status === 'soon'
-                    ? 'SẮP HẾT HẠN'
-                    : 'ĐÃ QUÁ HẠN'
-              }
-            />
-          </View>
-        </View>
-
-        {/* Info Card */}
-        <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>Thông tin thực phẩm</Text>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Số lượng</Text>
-            <Text style={styles.infoValue}>{food.quantityText}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Khu vực</Text>
-            <Text style={styles.infoValue}>{food.area || 'Ngăn mát'}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Ngày mua</Text>
-            <Text style={styles.infoValue}>{food.buyDate || '05/11/2026'}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Hạn sử dụng</Text>
-            <Text style={styles.infoValue}>{food.expDate || '06/11/2026'}</Text>
-          </View>
-          {food.category && food.category !== 'other' && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Nhóm thực phẩm</Text>
-              <Text style={styles.infoValue}>
-                {FOOD_CATEGORIES.find((item) => item.id === food.category)?.name}
-              </Text>
+    <SafeAreaView style={ui.screen}>
+      <PageHeader title="Chi tiết thực phẩm" onBack={goBack} />
+      <ScrollView contentContainerStyle={ui.content}>
+        <DataState ready={ready} error={error} onRetry={() => reload().catch(() => {})} />
+        {!food && ready && (
+          <Empty
+            title="Không tìm thấy thực phẩm"
+            detail="Quay lại tủ lạnh để xem danh sách hiện tại."
+          />
+        )}
+        {!!food && (
+          <>
+            <View style={s.summary}>
+              <View style={s.icon}>
+                <Ionicons
+                  name={category?.icon || 'grid-outline'}
+                  size={27}
+                  color={COLORS.darkGreen}
+                />
+              </View>
+              <View style={s.flex}>
+                <Text style={s.name}>{food.name}</Text>
+                <FreshnessBadge status={food.status} text={food.daysLeft} />
+              </View>
             </View>
-          )}
-          {!!food.notes && (
-            <View style={{ paddingTop: 12 }}>
-              <Text style={styles.infoLabel}>Ghi chú</Text>
-              <Text style={[styles.infoValue, { marginTop: 6, lineHeight: 22 }]}>{food.notes}</Text>
+            <View style={ui.card}>
+              {[
+                ['cube-outline', 'Số lượng', food.quantityText],
+                ['file-tray-outline', 'Ngăn lưu trữ', food.area],
+                ['time-outline', 'Hạn sử dụng', food.expDate],
+                ['calendar-outline', 'Ngày mua', food.buyDate],
+                ['pricetag-outline', 'Nhóm thực phẩm', food.category !== 'other' && category?.name],
+              ]
+                .filter(([, , value]) => value)
+                .map(([icon, label, value]) => (
+                  <View key={label} style={s.info}>
+                    <Ionicons name={icon} size={18} color={COLORS.primary} />
+                    <Text style={[ui.muted, s.flex]}>{label}</Text>
+                    <Text style={s.value}>{value}</Text>
+                  </View>
+                ))}
+              {!!food.notes && (
+                <View style={s.notes}>
+                  <Text style={ui.muted}>Ghi chú</Text>
+                  <Text style={ui.body}>{food.notes}</Text>
+                </View>
+              )}
             </View>
-          )}
-        </View>
-
-        {/* Action Buttons */}
-        <View style={styles.btnGroup}>
-          <TouchableOpacity
-            style={styles.editBtn}
-            disabled={busy}
-            onPress={() =>
-              navigation.navigate('UseFood', {
-                foodId: food.id,
-                reason: food.status === 'expired' ? 'discarded' : 'used',
-              })
-            }
-          >
-            <Text style={styles.editBtnText}>
-              {food.status === 'expired' ? 'Ghi nhận bỏ đi' : 'Đã dùng / Bỏ đi'}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.editBtn}
-            disabled={busy}
-            onPress={() => navigation.navigate('AddFood', { foodId: food.id })}
-          >
-            <Text style={styles.editBtnText}>Chỉnh sửa</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.deleteBtn} disabled={busy} onPress={handleDelete}>
-            <Text style={styles.deleteBtnText}>Xóa thực phẩm</Text>
-          </TouchableOpacity>
-        </View>
+            <View>
+              <Button
+                title={food.status === 'expired' ? 'Ghi nhận bỏ đi' : 'Ghi nhận đã dùng hoặc bỏ đi'}
+                disabled={disabled}
+                onPress={() =>
+                  navigation.navigate('UseFood', {
+                    foodId: food.id,
+                    reason: food.status === 'expired' ? 'discarded' : 'used',
+                  })
+                }
+              />
+              <Button
+                secondary
+                title="Chỉnh sửa"
+                disabled={disabled}
+                onPress={() => navigation.navigate('AddFood', { foodId: food.id })}
+              />
+              <Pressable
+                accessibilityRole="button"
+                style={s.delete}
+                disabled={disabled}
+                onPress={deleteFood}
+              >
+                <Ionicons name="trash-outline" size={17} color="#9F3B32" />
+                <Text style={s.deleteText}>Xóa thực phẩm</Text>
+              </Pressable>
+            </View>
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background, padding: 16 },
-  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  backBtn: { padding: 4 },
-  title: { fontSize: SIZES.h1, fontWeight: '700', color: COLORS.text },
-  subtitle: { fontSize: SIZES.body, color: COLORS.muted, marginTop: 2 },
-  cardHeader: {
-    backgroundColor: '#FFF9E6',
-    borderRadius: SIZES.radiusLarge,
-    padding: 24,
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  avatarLarge: {
-    width: 68,
-    height: 68,
+const s = StyleSheet.create({
+  flex: { flex: 1 },
+  summary: {
+    backgroundColor: '#E7EFDF',
     borderRadius: 16,
-    backgroundColor: COLORS.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  avatarLargeText: { fontSize: 24, fontWeight: '800', color: COLORS.primary },
-  foodName: { fontSize: 20, fontWeight: '700', color: COLORS.text },
-  infoCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: SIZES.radius,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: COLORS.divider,
-  },
-  infoTitle: { fontSize: 15, fontWeight: '700', color: COLORS.text, marginBottom: 14 },
-  infoRow: {
+    padding: 13,
+    gap: 12,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
+    alignItems: 'center',
   },
-  infoLabel: { fontSize: 14, color: COLORS.muted },
-  infoValue: { fontSize: 14, fontWeight: '600', color: COLORS.text },
-  btnGroup: { marginTop: 'auto', marginBottom: 12 },
-  editBtn: {
-    height: SIZES.btnHeight,
-    backgroundColor: COLORS.primary,
-    borderRadius: SIZES.radius,
+  icon: {
+    width: 50,
+    height: 50,
+    backgroundColor: '#F5F9F0',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    borderRadius: 13,
   },
-  editBtnText: { color: COLORS.white, fontSize: 16, fontWeight: '600' },
-  deleteBtn: { alignItems: 'center', paddingVertical: 12 },
-  deleteBtnText: { color: COLORS.expired, fontSize: 14, fontWeight: '600' },
+  name: { color: COLORS.text, fontWeight: '800', fontSize: 20, marginBottom: 5 },
+  info: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 37 },
+  value: { color: COLORS.text, fontWeight: '700', fontSize: 14, flexShrink: 1, textAlign: 'right' },
+  notes: { borderTopWidth: 1, borderTopColor: COLORS.divider, gap: 3, paddingTop: 9 },
+  delete: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  deleteText: { color: '#9F3B32', fontSize: 14, fontWeight: '700' },
 });

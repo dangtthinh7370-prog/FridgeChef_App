@@ -31,7 +31,15 @@ function fixture(options = {}) {
   const writes = [];
   const makeQuery = (table) => {
     const q = {
-      maybeSingle: async () => ({ data: { display_name: 'Thái' }, error: null }),
+      maybeSingle: async () => ({
+        data: {
+          display_name: 'Thái',
+          food_likes: 'Thích vị cay',
+          food_limits: 'Giảm ngọt',
+          food_dislikes: 'Không ăn cá',
+        },
+        error: null,
+      }),
       select() {
         return q;
       },
@@ -88,18 +96,29 @@ function fixture(options = {}) {
   };
   const mockFetch = async (url, request) => {
     fetches++;
+    if (options.transientError && fetches === 2)
+      assert.match(String(url), /gemini-3\.5-flash-lite/);
+    if (options.transientError && fetches === 1)
+      return Response.json({ error: { status: 'UNAVAILABLE' } }, { status: 503 });
+    if (options.sourceUnavailable && url.startsWith('https://www.themealdb.com/api/'))
+      return Response.json({}, { status: 503 });
     if (url.startsWith('https://www.themealdb.com/api/'))
       return new Response(JSON.stringify({ meals: options.noSource ? null : [meal] }), {
         status: 200,
       });
     assert.match(
       url,
-      /^https:\/\/generativelanguage.googleapis.com\/v1beta\/models\/gemini-3.1-flash-lite:generateContent$/,
+      /^https:\/\/generativelanguage.googleapis.com\/v1beta\/models\/gemini-3\.(?:1|5)-flash-lite:generateContent$/,
     );
     assert.equal(request.headers['x-goog-api-key'], 'gemini-server-secret');
     const body = JSON.parse(request.body);
     const prompt = JSON.parse(body.contents[0].parts[0].text);
     assert.equal(prompt.displayName, 'Thái');
+    assert.deepEqual(prompt.foodPreferences, {
+      likes: 'Thích vị cay',
+      limits: 'Giảm ngọt',
+      dislikes: 'Không ăn cá',
+    });
     assert.equal(prompt.user_id, undefined);
     assert.equal(prompt.email, undefined);
     assert.match(body.contents[0].parts[0].text, /themealdb-52772/);
@@ -121,7 +140,12 @@ function fixture(options = {}) {
                   finishReason: 'STOP',
                   content: {
                     parts: [
-                      { text: JSON.stringify({ selections: options.noMatch ? [] : [selection] }) },
+                      {
+                        text: JSON.stringify({
+                          message: 'Bạn muốn đổi khẩu vị không?',
+                          selections: options.noMatch ? [] : [selection],
+                        }),
+                      },
                     ],
                   },
                 },
@@ -141,7 +165,9 @@ function fixture(options = {}) {
     (request) =>
       request.includes('mealdb.js')
         ? load('supabase/functions/_shared/mealdb.js')
-        : { createClient: (_url, key) => (key === 'service' ? admin : client) },
+        : request.includes('chat.js')
+          ? load('supabase/functions/_shared/chat.js')
+          : { createClient: (_url, key) => (key === 'service' ? admin : client) },
     {},
     deno,
     mockFetch,
@@ -156,22 +182,20 @@ function fixture(options = {}) {
     );
   return { request, writes, stats: () => ({ fetches, claims }) };
 }
-test('Gemini endpoint authenticates before source, quota or provider', async () => {
+test('Gemini endpoint authenticates before source or provider', async () => {
   const f = fixture({ unauthorized: true });
   assert.equal((await f.request()).status, 401);
   assert.deepEqual(f.stats(), { fetches: 0, claims: 0 });
 });
-test('Gemini endpoint requires server key and validates payload before quota', async () => {
+test('Gemini endpoint falls back without a Gemini key and validates payload before calling Gemini', async () => {
   const missing = fixture({ noKey: true });
-  assert.equal((await missing.request()).status, 503);
+  assert.equal((await (await missing.request()).json()).mode, 'catalog');
+  assert.equal(missing.stats().fetches, 0);
   const invalid = fixture();
   assert.equal((await invalid.request({ servings: 99 })).status, 400);
   assert.equal(invalid.stats().claims, 0);
 });
-test('Gemini endpoint enforces quota and requires non-expired inventory', async () => {
-  const limited = fixture({ allowed: false });
-  assert.equal((await limited.request()).status, 429);
-  assert.equal(limited.stats().fetches, 0);
+test('Gemini endpoint requires non-expired inventory', async () => {
   const empty = fixture({ empty: true });
   assert.equal((await empty.request()).status, 400);
   assert.equal(empty.stats().fetches, 0);
@@ -204,12 +228,46 @@ test('catalog action fetches official API and stores canonical source before res
   assert.equal(f.writes[0].value[0].source_payload.idMeal, '52772');
   assert.equal(f.stats().fetches, 1);
 });
-test('no-match and provider failures do not fake successful recommendations', async () => {
+test('no-match stays empty and Gemini failure uses only sourced recipes', async () => {
   const empty = fixture({ noMatch: true });
   assert.deepEqual((await (await empty.request()).json()).recipes, []);
   assert.equal(empty.writes.length, 0);
   const failed = fixture({ providerError: true });
   const r = await failed.request();
-  assert.equal(r.status, 502);
-  assert.doesNotMatch(await r.text(), /secret provider/);
+  assert.equal(r.status, 200);
+  const fallback = await r.json();
+  assert.equal(fallback.mode, 'catalog');
+  assert.equal(fallback.recipes[0].id, recipe.id);
+  assert.match(fallback.message, /Gemini chưa trả lời/);
+  assert.doesNotMatch(fallback.message, /secret provider/);
+  assert.equal(failed.writes.length, 0);
+});
+
+test('recommendation retries a transient Gemini failure once', async () => {
+  const f = fixture({ transientError: true });
+  assert.equal((await f.request()).status, 200);
+  assert.deepEqual(f.stats(), { fetches: 2, claims: 0 });
+});
+
+test('no matching recipe returns the generated conversation message', async () => {
+  const f = fixture({ noMatch: true });
+  const response = await f.request();
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { recipes: [], message: 'Bạn muốn đổi khẩu vị không?' });
+});
+
+test('recommendations still reach Gemini after ten requests from the same account', async () => {
+  const f = fixture({ allowed: false });
+  for (let n = 0; n < 11; n++) assert.equal((await f.request()).status, 200);
+  assert.deepEqual(f.stats(), { fetches: 11, claims: 0 });
+});
+
+test('catalog search serves matching cached recipes when the external source is unavailable', async () => {
+  const f = fixture({ sourceUnavailable: true });
+  const response = await f.request({ action: 'catalog', query: 'chicken' });
+  assert.equal(response.status, 200);
+  const result = await response.json();
+  assert.equal(result.mode, 'catalog');
+  assert.equal(result.recipes[0].source.id, recipe.source.id);
+  assert.equal(f.writes.length, 0);
 });

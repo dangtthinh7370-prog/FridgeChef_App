@@ -1,15 +1,32 @@
 import { useMemo, useRef, useState } from 'react';
 import { useFridgeViewModel } from './FridgeProvider';
 import { formatDate, todayISO, validateShopping } from '../models/food';
-import { getShoppingFormErrors, stepQuantity, QUICK_FOODS } from '../models/foodForm';
+import {
+  getFoodFormErrors,
+  getShoppingFormErrors,
+  stepQuantity,
+  QUICK_FOODS,
+} from '../models/foodForm';
 
 const emptyForm = (unit) => ({ name: '', quantity: '1', unit: unit || 'quả' });
 export default function useShoppingViewModel() {
-  const { shopping, foods, busy, mutate } = useFridgeViewModel();
+  const {
+    shopping,
+    foods,
+    busy,
+    mutate,
+    ready,
+    offline,
+    error: syncError,
+    reload,
+    refreshing,
+  } = useFridgeViewModel();
   const [mode, setMode] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(() => emptyForm());
   const [transfer, setTransfer] = useState([]);
+  const [transferErrors, setTransferErrors] = useState({});
+  const initialTransfer = useRef([]);
   const [error, setError] = useState('');
   const [errors, setErrors] = useState({});
   const initialForm = useRef('');
@@ -46,6 +63,13 @@ export default function useShoppingViewModel() {
     setTransfer((previous) =>
       previous.map((item) => (item.shoppingId === id ? { ...item, [key]: value } : item)),
     );
+    setTransferErrors((previous) => {
+      if (!previous[id]) return previous;
+      const fields = { ...previous[id] };
+      delete fields[key];
+      if (key === 'buyDate') delete fields.expDate;
+      return { ...previous, [id]: fields };
+    });
     setError('');
   };
   const openEditor = (item) => {
@@ -63,17 +87,18 @@ export default function useShoppingViewModel() {
   const openTransfer = (id) => {
     const bought = shopping.filter((item) => item.bought && (id == null || item.id === id));
     if (!bought.length) return;
-    setTransfer(
-      bought.map((item) => ({
-        shoppingId: item.id,
-        name: item.name,
-        quantity: String(item.quantity),
-        unit: item.unit,
-        storageAreaId: 'cool',
-        buyDate: formatDate(todayISO()),
-        expDate: '',
-      })),
-    );
+    const next = bought.map((item) => ({
+      shoppingId: item.id,
+      name: item.name,
+      quantity: String(item.quantity),
+      unit: item.unit,
+      storageAreaId: 'cool',
+      buyDate: formatDate(todayISO()),
+      expDate: '',
+    }));
+    initialTransfer.current = next;
+    setTransfer(next);
+    setTransferErrors({});
     setError('');
     setMode('transfer');
   };
@@ -108,22 +133,36 @@ export default function useShoppingViewModel() {
     }
   };
   const move = async () => {
-    if (submitting.current || busy) return 0;
+    if (submitting.current || busy) return {};
     submitting.current = true;
     try {
+      const invalid = transfer.flatMap((item) => {
+        const fields = getFoodFormErrors({ ...item, notes: '', category: 'other' });
+        return Object.keys(fields).length ? [[item.shoppingId, fields]] : [];
+      });
+      setTransferErrors(Object.fromEntries(invalid));
+      if (invalid.length) {
+        setError('Kiểm tra thông tin được đánh dấu ở các món bên trên.');
+        return { invalidId: invalid[0][0] };
+      }
       const count = await mutate('moveBoughtToFridge', { entries: transfer });
       setMode(null);
       setError('');
-      return count;
+      return { count };
     } catch (err) {
       setError(err.message);
-      return 0;
+      return {};
     } finally {
       submitting.current = false;
     }
   };
   return {
     shopping,
+    ready,
+    offline,
+    syncError,
+    reload,
+    refreshing,
     busy,
     mode,
     editingId,
@@ -131,6 +170,8 @@ export default function useShoppingViewModel() {
     transfer,
     error,
     errors,
+    transferErrors,
+    transferDirty: mode === 'transfer' && transfer !== initialTransfer.current,
     setField,
     setTransferField,
     suggestions,

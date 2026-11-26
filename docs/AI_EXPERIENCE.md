@@ -7,7 +7,7 @@
 - **Chọn món từ tủ lạnh**: yêu cầu số người và sở thích, Gemini chọn và dịch công thức có nguồn; không tự đoán định lượng còn thiếu.
 - Chi tiết món: nguyên liệu, nguồn tham khảo, thêm phần còn thiếu vào đi chợ, xem từng bước, chế độ nấu và hỏi AI về món đang xem.
 - Tin nhắn lỗi giữ mã yêu cầu để gửi lại; trao đổi đã lưu trả kết quả cũ mà không gọi Gemini lần nữa.
-- Mỗi tài khoản dùng chung hạn mức 10 lượt khám phá/gợi ý/chat mỗi giờ.
+- FridgeChef không giới hạn số lượt theo giờ. Hạn mức của Gemini và nguồn công thức vẫn áp dụng.
 
 ## Lưu trữ và triển khai
 
@@ -21,6 +21,6 @@ Khi tắt công tắc tồn kho, máy chủ không truy vấn/gửi tồn kho m�
 
 ## Kiểm tra
 
-Chạy `npm test`, `npm run check:source` và `npx expo export --platform android`. Các bài kiểm tra mới bao gồm giới hạn dữ liệu gửi Gemini, thứ tự lịch sử, quota, lỗi lưu, retry cùng mã thao tác, tìm món không cần tồn kho và phân quyền hội thoại.
+Chạy `npm test`, `npm run check:source` và `npx expo export --platform android`. Các bài kiểm tra mới bao gồm giới hạn dữ liệu gửi Gemini, thứ tự lịch sử, lỗi lưu, retry cùng mã thao tác, tìm món không cần tồn kho và phân quyền hội thoại.
 
 Đã thử trên Android giả lập bằng tài khoản đang đăng nhập: mở tab Món ăn, mở Bếp AI, gửi câu hỏi hướng dẫn pasta, nhận câu trả lời Gemini với tên hiển thị và định dạng hướng dẫn.

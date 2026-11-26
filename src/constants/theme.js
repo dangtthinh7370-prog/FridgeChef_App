@@ -7,7 +7,7 @@ export const COLORS = {
   background: '#F7FAF6',    // Màu nền toàn màn hình
   white: '#FFFFFF',
   text: '#24352A',          // Màu chữ chính
-  muted: '#718175',         // Màu chữ phụ / subtitle / placeholder
+  muted: '#56685B',         // Màu chữ phụ / subtitle / placeholder
   expirySoon: '#F4A62A',    // Màu cam vàng cảnh báo sắp hết hạn
   expired: '#CE4E46',       // Màu đỏ cảnh báo đã quá hạn
   divider: '#E3EBE4',       // Đường kẻ / viền card

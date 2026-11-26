@@ -3,6 +3,7 @@ import { View, Text } from 'react-native';
 
 // Render the small Markdown subset used by Gemini without HTML or embedded links.
 export default function AIMessage({ text }) {
+<<<<<<< HEAD
   // Guard against non-string values (e.g. a plain object returned unexpectedly)
   const safeText =
     typeof text === 'string'
@@ -13,9 +14,22 @@ export default function AIMessage({ text }) {
   return (
     <View style={{ gap: 6 }}>
       {safeText.split('\n').map((line, index) => {
+=======
+  const lines = String(text || '')
+    .replace(/\r\n?/g, '\n')
+    .trim()
+    .split('\n')
+    .filter((line) => !/^\s*\x60{3}[a-z]*\s*$/i.test(line));
+  return (
+    <View style={{ gap: 6 }}>
+      {lines.map((line, index) => {
+>>>>>>> d307c8a81165d6b9cd935dff34bd477219120dba
         if (!line.trim()) return <View key={index} style={{ height: 5 }} />;
-        const heading = /^#{1,6}\s+/.test(line);
-        const content = line.replace(/^#{1,6}\s+/, '').replace(/^\s*[-*]\s+/, '• ');
+        const heading = /^\s*#{1,6}\s+/.test(line);
+        const content = line
+          .replace(/^\s*#{1,6}\s+/, '')
+          .replace(/^\s*[-*+]\s+/, '• ')
+          .replace(/\[([^\]]+)\]\(https?:\/\/[^)]+\)/g, '$1');
         return (
           <Text
             selectable

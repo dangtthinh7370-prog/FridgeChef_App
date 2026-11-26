@@ -52,7 +52,7 @@ npx supabase functions deploy ai-chef --project-ref myisxmhufyzhohykocnb
 
 `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY` là biến của runtime Supabase Edge Functions. Không đưa service role hoặc Gemini key vào `.env` dành cho Expo, và không dùng tiền tố `EXPO_PUBLIC_` cho chúng.
 
-Config gateway `verify_jwt=false` đi cùng kiểm tra bắt buộc `auth.getUser()` bên trong function. Mọi dữ liệu người dùng được truy vấn theo user ID lấy từ token, không lấy user ID do client truyền. Có hạn mức tổng 10 lượt khám phá/gợi ý trên mỗi tài khoản mỗi giờ, giới hạn số công thức và timeout. Không gửi lại tự động khi API báo lỗi để tránh phát sinh nhiều lần gọi không mong muốn.
+Config gateway `verify_jwt=false` đi cùng kiểm tra bắt buộc `auth.getUser()` bên trong function. Mọi dữ liệu người dùng được truy vấn theo user ID lấy từ token, không lấy user ID do client truyền. Giới hạn số công thức và timeout vẫn áp dụng. Khi Gemini trả lỗi máy chủ tạm thời trong luồng gợi ý, Edge Function có thể thử lại một lần với model dự phòng.
 
 ### Cơ chế gợi ý
 

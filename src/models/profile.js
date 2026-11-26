@@ -1,3 +1,21 @@
+export function getFoodPreferences(profile) {
+  return {
+    food_likes: profile?.food_likes || '',
+    food_limits: profile?.food_limits || '',
+    food_dislikes: profile?.food_dislikes || '',
+  };
+}
+
+export function validateFoodPreferences(input) {
+  const fields = getFoodPreferences(input);
+  for (const key of Object.keys(fields)) {
+    if (typeof fields[key] !== 'string' || fields[key].length > 500)
+      throw new Error('Mỗi nhóm sở thích dài tối đa 500 ký tự.');
+    fields[key] = fields[key].trim();
+  }
+  return fields;
+}
+
 export function validateProfile(input) {
   const display_name = String(input.display_name || '').trim();
   const phone = String(input.phone || '').trim();

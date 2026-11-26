@@ -1,5 +1,6 @@
 // src/navigation/TabNavigator.js
 import React from 'react';
+import { Text, useWindowDimensions } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/theme';
@@ -15,6 +16,9 @@ const Tab = createBottomTabNavigator();
 
 export default function TabNavigator() {
   const insets = useSafeAreaInsets();
+  const { width, fontScale } = useWindowDimensions();
+  const compact = width < 360 || fontScale > 1.15;
+  const barHeight = compact ? Math.ceil(33 + 28 * fontScale) : 56;
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -24,15 +28,26 @@ export default function TabNavigator() {
         tabBarStyle: {
           backgroundColor: COLORS.white,
           borderTopColor: COLORS.divider,
-          height: 56 + Math.max(insets.bottom, 8),
+          height: barHeight + Math.max(insets.bottom, 8),
           paddingBottom: Math.max(insets.bottom, 8),
           paddingTop: 6,
         },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '500',
-        },
-        tabBarIcon: ({ focused, color, size }) => {
+        tabBarLabelPosition: 'below-icon',
+        tabBarLabel: ({ color }) => (
+          <Text
+            numberOfLines={2}
+            style={{
+              color,
+              fontSize: compact ? 11 : 12,
+              fontWeight: '600',
+              textAlign: 'center',
+              paddingHorizontal: 2,
+            }}
+          >
+            {route.name}
+          </Text>
+        ),
+        tabBarIcon: ({ focused, color }) => {
           let iconName = 'home-outline';
           if (route.name === 'Món ăn') iconName = focused ? 'restaurant' : 'restaurant-outline';
           if (route.name === 'Trang chủ') {
