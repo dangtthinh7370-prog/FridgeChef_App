@@ -3,7 +3,7 @@ import { useFridgeViewModel } from './FridgeProvider';
 import { validateFood } from '../models/food';
 import { createFoodForm, getFoodFormErrors, stepQuantity, QUICK_FOODS } from '../models/foodForm';
 
-export default function useFoodFormViewModel(foodId, initialName) {
+export default function useFoodFormViewModel(foodId, initialName, initialStorageAreaId) {
   const { foods, mutate, busy } = useFridgeViewModel();
   const existing = foods.find((food) => String(food.id) === String(foodId));
   const editing = foodId != null;
@@ -11,6 +11,7 @@ export default function useFoodFormViewModel(foodId, initialName) {
   const [form, setForm] = useState(() => ({
     ...createFoodForm(existing),
     ...(!existing && initialName ? { name: initialName } : {}),
+    ...(!existing && initialStorageAreaId ? { storageAreaId: initialStorageAreaId } : {}),
   }));
   const initial = useRef(JSON.stringify(form));
   const initialVersion = useRef(existing?.updatedAt);

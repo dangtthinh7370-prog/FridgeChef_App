@@ -22,10 +22,17 @@ import { useAuth } from '../../viewmodels/AuthProvider';
 import { useRecipes } from '../../viewmodels/RecipeProvider';
 import AIMessage from '../../components/AIMessage';
 
+function extractDisplayMessage(raw) {
+  if (typeof raw !== 'string') return '';
+  const marker = '\n\n[Lưu ý tủ lạnh]:';
+  const idx = raw.indexOf(marker);
+  return idx !== -1 ? raw.substring(0, idx).trim() : raw;
+}
+
 const starters = [
-  'Tối nay ăn gì đơn giản?',
+  'Tối nay ăn gì từ tủ lạnh?',
+  'Gợi ý món đơn giản với nguyên liệu có sẵn',
   'Giải thích cách làm pasta cho người mới',
-  'Gợi ý món Nhật không cay',
 ];
 export default function AIChatScreen({ navigation, route }) {
   const { user } = useAuth();
@@ -70,13 +77,26 @@ export default function AIChatScreen({ navigation, route }) {
   }, [user.id]);
   const send = async (retry) => {
     if (lock.current || loading) return;
-    const request = retry || {
-      id: Crypto.randomUUID(),
-      message: draft.trim(),
-      useInventory,
-      recipeId: recipe?.id,
-    };
-    if (!request.message) return;
+    const request =
+      retry ||
+      (() => {
+        const userText = draft.trim();
+        if (!userText) return null;
+        const wantsInventory =
+          useInventory || /gợi ý|ăn gì|nấu gì|món gì|tủ lạnh|nguyên liệu/i.test(userText);
+        let enriched = userText;
+        if (wantsInventory) {
+          enriched = `${userText}\n\n[Lưu ý tủ lạnh]: Hãy ưu tiên gợi ý các món nấu từ những nguyên liệu có sẵn trong tủ lạnh của tôi. Tuyệt đối KHÔNG gợi ý món đòi hỏi các nguyên liệu chính không có trong tủ lạnh (ví dụ không tự thêm tôm, mực, giá đỗ, thịt bò... nếu trong tủ không có). Nếu thiếu nguyên liệu phụ gì, hãy ghi rõ 'Cần mua thêm: ...'.`;
+        }
+        return {
+          id: Crypto.randomUUID(),
+          displayMessage: userText,
+          message: enriched,
+          useInventory: wantsInventory,
+          recipeId: recipe?.id,
+        };
+      })();
+    if (!request?.message) return;
     lock.current = true;
     setBusy(true);
     setError('');
@@ -92,7 +112,7 @@ export default function AIChatScreen({ navigation, route }) {
       if (!alive.current) return;
       setMessages((rows) => [
         ...rows.filter((r) => r.id !== request.id),
-        { id: request.id, message: request.message, reply: answer },
+        { id: request.id, message: request.displayMessage || request.message, reply: answer },
       ]);
       setDraft('');
       setPending(null);
@@ -236,7 +256,7 @@ export default function AIChatScreen({ navigation, route }) {
             >
               <View style={s.userBubble}>
                 <Text selectable style={{ color: 'white', fontSize: 16, lineHeight: 24 }}>
-                  {m.message}
+                  {extractDisplayMessage(m.message)}
                 </Text>
               </View>
               <View style={s.aiBubble}>
@@ -251,7 +271,7 @@ export default function AIChatScreen({ navigation, route }) {
               onLayout={() => scroll.current?.scrollToEnd({ animated: true })}
             >
               <Text style={{ color: 'white', fontSize: 16, lineHeight: 24 }}>
-                {pending.message}
+                {extractDisplayMessage(pending.message)}
               </Text>
             </View>
           )}
@@ -292,7 +312,9 @@ export default function AIChatScreen({ navigation, route }) {
             <View style={{ flex: 1 }}>
               <Text style={s.contextTitle}>Dùng nguyên liệu trong tủ lạnh</Text>
               <Text style={ui.muted}>
-                {useInventory ? 'AI nhận tên, lượng và hạn dùng' : 'Không gửi dữ liệu tồn kho mới'}
+                {useInventory
+                  ? 'Ưu tiên gợi ý món theo thực phẩm còn hạn trong tủ'
+                  : 'Tự động kích hoạt khi bạn hỏi gợi ý món ăn'}
               </Text>
             </View>
             <Switch
@@ -329,7 +351,7 @@ export default function AIChatScreen({ navigation, route }) {
               accessibilityRole="button"
               style={ui.iconButton}
               onPress={() => {
-                setDraft(pending.message);
+                setDraft(extractDisplayMessage(pending.message));
                 setPending(null);
                 setError('');
               }}

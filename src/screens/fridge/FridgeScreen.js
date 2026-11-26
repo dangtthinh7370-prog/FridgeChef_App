@@ -150,7 +150,12 @@ export default function FridgeScreen({ navigation }) {
         }
       />
       <View style={ui.footer}>
-        <Button title="+ Thêm thực phẩm" onPress={() => navigation.navigate('AddFood')} />
+        <Button
+          title="+ Thêm thực phẩm"
+          onPress={() =>
+            navigation.navigate('AddFood', area !== 'all' ? { initialStorageAreaId: area } : {})
+          }
+        />
       </View>
     </SafeAreaView>
   );

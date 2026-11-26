@@ -32,7 +32,7 @@ function FieldError({ message }) {
 }
 
 export default function AddFoodScreen({ navigation, route }) {
-  const vm = useFoodFormViewModel(route.params?.foodId, route.params?.initialName);
+  const vm = useFoodFormViewModel(route.params?.foodId, route.params?.initialName, route.params?.initialStorageAreaId);
   const { form, errors } = vm;
   const insets = useSafeAreaInsets();
   const scroll = useRef(null);
